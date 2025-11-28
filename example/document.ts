@@ -9,13 +9,13 @@ const modalState = { isOpen: false };
 // Translations
 const translations = {
 	zh: {
-		title: "no-no-no 响应式 DOM 库文档",
+		title: "zeroeffect 响应式 DOM 库文档",
 		subtitle: "无虚拟 DOM · 无 Proxy · 无 Signal",
 		switchLang: "English",
 		gettingStarted: {
 			title: "快速开始",
 			content:
-				"no-no-no 使用普通的 JavaScript 对象作为 state，无需 Signal 或 Proxy。第一个参数如果是数组，会作为依赖。当依赖对象变化时，调用 h.update(state) 更新视图。",
+				"zeroeffect 使用普通的 JavaScript 对象作为 state，无需 Signal 或 Proxy。第一个参数如果是数组，会作为依赖。当依赖对象变化时，调用 h.update(state) 更新视图。",
 		},
 		reactiveAttributes: {
 			title: "响应式属性",
@@ -65,13 +65,13 @@ const translations = {
 		},
 	},
 	en: {
-		title: "no-no-no Reactive DOM Library Documentation",
+		title: "zeroeffect Reactive DOM Library Documentation",
 		subtitle: "No Virtual DOM · No Proxy · No Signal",
 		switchLang: "中文",
 		gettingStarted: {
 			title: "Getting Started",
 			content:
-				"no-no-no uses plain JavaScript objects as state - no Signal or Proxy needed. If the first parameter is an array, it becomes dependencies. When dependency objects change, call h.update(state) to update the view.",
+				"zeroeffect uses plain JavaScript objects as state - no Signal or Proxy needed. If the first parameter is an array, it becomes dependencies. When dependency objects change, call h.update(state) to update the view.",
 		},
 		reactiveAttributes: {
 			title: "Reactive Attributes",
@@ -598,11 +598,11 @@ export const DocumentPage = () => {
 	});
 
 	// README-CLAUDE.md content
-	const claudeMdContent = `# no-no-no Usage Guide for Claude
+	const claudeMdContent = `# zeroeffect Usage Guide for Claude
 
 ## Core Concept
 
-no-no-no is a reactive DOM library that uses **plain JavaScript objects** as state. No Signal, no Proxy, no Virtual DOM.
+zeroeffect is a reactive DOM library that uses **plain JavaScript objects** as state. No Signal, no Proxy, no Virtual DOM.
 
 ## Basic Usage
 
@@ -814,7 +814,7 @@ h.element(existingDiv)([state], () => state.text);
 		// Getting Started - Combined intro, state, basic tags, reactive content
 		createExampleSection(
 			"gettingStarted",
-			`import { h } from "no-no-no";
+			`import { h } from "zeroeffect";
 
 // State is just a plain JavaScript object
 const state = { count: 0 };
@@ -867,7 +867,7 @@ document.body.append(app);`,
 		// Reactive Attributes
 		createExampleSection(
 			"reactiveAttributes",
-			`import { h } from "no-no-no";
+			`import { h } from "zeroeffect";
 
 const state = { name: "John" };
 
@@ -914,7 +914,7 @@ document.body.append(app);`,
 		// Style Objects and Functions
 		createExampleSection(
 			"style",
-			`import { h } from "no-no-no";
+			`import { h } from "zeroeffect";
 
 const state = { count: 0 };
 
@@ -1002,7 +1002,7 @@ document.body.append(app);`,
 		// Conditional Rendering
 		createExampleSection(
 			"conditional",
-			`import { h } from "no-no-no";
+			`import { h } from "zeroeffect";
 
 const state = { count: 0 };
 
@@ -1076,7 +1076,7 @@ document.body.append(app);`,
 		// List Rendering
 		createExampleSection(
 			"list",
-			`import { h } from "no-no-no";
+			`import { h } from "zeroeffect";
 
 const list = [1, 2, 3, 4, 5];
 const sharedState = { highlight: false };
@@ -1203,7 +1203,7 @@ document.body.append(app);`,
 		// h.element
 		createExampleSection(
 			"element",
-			`import { h } from "no-no-no";
+			`import { h } from "zeroeffect";
 
 const existingDiv = document.createElement("div");
 const state = { count: 0 };
@@ -1225,7 +1225,7 @@ document.body.append(existingDiv);`,
 		// Todo List Example
 		createExampleSection(
 			"todo",
-			`import { h } from "no-no-no";
+			`import { h } from "zeroeffect";
 
 const todos = [];
 
@@ -1440,7 +1440,7 @@ document.body.append(app);`,
 		// CSS Injection (moved to end)
 		createExampleSection(
 			"css",
-			`import { h } from "no-no-no";
+			`import { h } from "zeroeffect";
 
 h.css(\`
 	.text-red-500 {
@@ -1466,7 +1466,7 @@ document.body.append(app);`,
 		// Custom Tags (moved to end)
 		createExampleSection(
 			"customTags",
-			`import { h } from "no-no-no";
+			`import { h } from "zeroeffect";
 
 // Custom tags are supported
 // In TypeScript, use type assertion to avoid type errors
@@ -1498,7 +1498,7 @@ document.body.append(app);`,
 		// innerHTML (moved to end)
 		createExampleSection(
 			"innerHTML",
-			`import { h } from "no-no-no";
+			`import { h } from "zeroeffect";
 
 const app = h.div(
 	{ class: "flex items-center gap-2" },
@@ -1521,7 +1521,7 @@ document.body.append(app);`,
 		// Falsy Values (moved to end)
 		createExampleSection(
 			"falsy",
-			`import { h } from "no-no-no";
+			`import { h } from "zeroeffect";
 
 const state = { show: true };
 

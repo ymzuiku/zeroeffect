@@ -1,4 +1,4 @@
-# no-no-no Usage Guide for Claude
+# zeroeffect Usage Guide for Claude
 
 ## Core Concept
 
