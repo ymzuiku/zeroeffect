@@ -929,8 +929,36 @@ function updateList(
 
 			reactiveInfo.listPlaceholder = firstElement;
 			reactiveInfo.element = firstElement;
+		} else if (newLength > currentLength) {
+			// List length increased - only add new items, don't re-render existing ones
+			// Find the last existing element to insert after it
+			let lastInserted: HTMLElement | null = null;
+			if (parent) {
+				// Find the last list element that exists in DOM
+				for (let i = currentLength - 1; i >= 0; i--) {
+					const listElement = listElements.get(i);
+					if (listElement && listElement.parentNode === parent) {
+						lastInserted = listElement;
+						break;
+					}
+				}
+			}
+
+			// Only render and insert new items (from currentLength to newLength-1)
+			for (let i = currentLength; i < newLength; i++) {
+				const element = renderFn(newListData[i], i);
+				listElements.set(i, element);
+				if (parent && lastInserted) {
+					parent.insertBefore(element, lastInserted.nextSibling);
+					lastInserted = element;
+				} else if (parent && !lastInserted) {
+					// If no lastInserted found, insert after currentPlaceholder
+					parent.insertBefore(element, currentPlaceholder.nextSibling);
+					lastInserted = element;
+				}
+			}
 		} else {
-			// List length changed (non-zero to non-zero) - re-render all items
+			// List length decreased - re-render all items (keep existing logic)
 			// Save the insertion point before removing elements
 			// We need to find the node after the LAST list element, not the first one
 			let insertBeforeNode: Node | null = null;

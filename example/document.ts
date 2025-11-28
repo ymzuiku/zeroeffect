@@ -35,7 +35,7 @@ const translations = {
 		list: {
 			title: "列表渲染",
 			content:
-				"使用 h.list() 渲染列表。第一个参数是依赖数组，第一个元素必须是列表数据数组，其他依赖是可选的。第二个参数是渲染函数，接收 value 和 index。列表长度变化时会重新渲染整个列表。每个列表项元素可以有自己的依赖，当这些依赖变化时，只有对应的项会更新。",
+				"使用 h.list() 渲染列表。第一个参数是依赖数组，第一个元素必须是列表数据数组，其他依赖是可选的。第二个参数是渲染函数，接收 value 和 index。当列表长度变化时：新增 item 时不会重新渲染现有元素，只添加新元素；删除 item 时会重新渲染整个列表（这是为了简化使用，不需要 key，并且索引一直是正确的）。每个列表项元素可以有自己的依赖，当这些依赖变化时，只有对应的项会更新。",
 		},
 		element: {
 			title: "绑定已有元素",
@@ -91,7 +91,7 @@ const translations = {
 		list: {
 			title: "List Rendering",
 			content:
-				"Use h.list() to render lists. The first parameter is a dependency array where the FIRST element MUST be the array to render, other dependencies are optional. The second parameter is a render function that receives value and index. The list re-renders when array length changes. Each list item element can have its own dependencies - when those dependencies change, only that specific item updates.",
+				"Use h.list() to render lists. The first parameter is a dependency array where the FIRST element MUST be the array to render, other dependencies are optional. The second parameter is a render function that receives value and index. When list length changes: adding items does NOT re-render existing elements, only new items are added; removing items re-renders the entire list (this simplifies usage - no key needed, and indices are always correct). Each list item element can have its own dependencies - when those dependencies change, only that specific item updates.",
 		},
 		element: {
 			title: "Binding Existing Elements",
@@ -668,7 +668,9 @@ h.list(
   [items, otherState], // First dep MUST be the array to render, other deps are optional
   (item, index) => h.div([item], () => \`Item: \${item}\`) // Each item can have its own dependencies
 );
-// When items.length changes, list re-renders
+// When items.length changes:
+//   - Adding items: existing elements won't re-render, only new items are added
+//   - Removing items: entire list re-renders (simplifies usage - no key needed, indices are always correct)
 // Individual items update when their own dependencies change
 
 // Bind to existing element
@@ -691,7 +693,9 @@ h.element(existingDiv)([state], () => state.text);
   - Other dependencies are optional and shared across all items
   - \`renderFn(value, index)\`: Function that returns element for each item
   - **Each item element can have its own dependencies** (e.g., \`h.div([item], ...)\` makes each item reactive to its own data)
-  - List re-renders when array length changes
+  - When array length changes:
+    - **Adding items**: existing elements won't re-render, only new items are added
+    - **Removing items**: entire list re-renders (simplifies usage - no key needed, indices are always correct)
   - Individual items update when their own dependencies change
 - \`h.element(element)\` - Bind reactive properties to existing element
 
@@ -1083,6 +1087,8 @@ const sharedState = { highlight: false };
 
 // First dependency MUST be the array to render
 // Other dependencies are optional and shared
+// Note: Adding items does NOT re-render existing elements (only new items are added)
+//       Removing items re-renders the entire list (simplifies usage - no key needed, indices are always correct)
 const app = h.div(
 	{ class: "space-y-4" },
 	h.list(
@@ -1108,6 +1114,7 @@ const app = h.div(
 				onclick: () => {
 					list.push(list.length + 1);
 					h.update(list);
+					// Adding item: existing elements won't re-render
 				}
 			},
 			"Add Item"
@@ -1119,6 +1126,8 @@ const app = h.div(
 					if (list.length > 0) {
 						list.pop();
 						h.update(list);
+						// Removing item: entire list will re-render
+						// (simplifies usage - no key needed, indices are always correct)
 					}
 				}
 			},

@@ -211,8 +211,8 @@ export const ExamplePage = () => {
 				),
 			),
 			// Use h.list to render todo list
-			h.list([todos], (todo, index) =>
-				h.div(
+			h.list([todos], (todo, index) => {
+				return h.div(
 					[todo],
 					{
 						class:
@@ -276,8 +276,8 @@ export const ExamplePage = () => {
 						},
 						"Delete",
 					),
-				),
-			),
+				);
+			}),
 		),
 	);
 };
