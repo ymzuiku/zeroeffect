@@ -1,6 +1,6 @@
 {
   "name": "zeroeffect",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "A reactive DOM library with no Signal, no Proxy, no Virtual DOM. Just plain JavaScript objects.",
   "type": "module",
   "main": "./src/index.ts",
