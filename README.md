@@ -73,6 +73,19 @@ h.list(
 // When items.length changes, list re-renders
 // Individual items update when their own dependencies change
 
+// Virtual list (for large datasets, 100k+ items)
+h.virtualList(
+  [items], // First dep MUST be the array to render
+  (item, index) => h.div([item], () => `Item: ${item}`),
+  {
+    itemHeight: 50, // Fixed height or function: (index) => number
+    containerHeight: 600, // Optional, defaults to parent height
+    overscan: 5, // Optional, items to render outside viewport (default: 5)
+  }
+);
+// Only renders visible items for performance
+// Automatically updates when data changes via h.update(items)
+
 // Bind to existing element
 h.element(existingDiv)([state], () => state.text);
 ```
@@ -95,12 +108,20 @@ h.element(existingDiv)([state], () => state.text);
   - **Each item element can have its own dependencies** (e.g., `h.div([item], ...)` makes each item reactive to its own data)
   - List re-renders when array length changes
   - Individual items update when their own dependencies change
+- `h.virtualList(deps, renderFn, options)` - Virtual list for large datasets (100k+ items)
+  - **First dependency MUST be the array to render**
+  - `renderFn(value, index)`: Function that returns element for each item
+  - `options.itemHeight`: Fixed height (number) or function `(index) => number`
+  - `options.containerHeight`: Optional container height (defaults to parent)
+  - `options.overscan`: Optional items to render outside viewport (default: 5)
+  - Only renders visible items for performance
+  - Automatically updates when data changes via `h.update(items)`
 - `h.element(element)` - Bind reactive properties to existing element
 
 ## Important Notes
 
 - Multiple `h.update()` calls in same frame are batched
 - Falsy values (`false`, `null`, `undefined`, `NaN`, `''`) don't render
-- Custom tags: `h["custom-tag"]()` works, but reserved methods don't: `update`, `onUpdate`, `list`, `if`, `css`, `innerHTML`, `element`
+- Custom tags: `h["custom-tag"]()` works, but reserved methods don't: `update`, `onUpdate`, `list`, `if`, `css`, `innerHTML`, `element`, `virtualList`
 - **TypeScript**: For custom tags, use type assertion: `h["iconify-icon" as "div"]({ ... })` to avoid type errors
 - Elements must be in DOM for updates to work

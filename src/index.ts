@@ -359,6 +359,8 @@ interface ReactiveElementInfo {
 	listRenderFn?: (value: unknown, index: number) => HTMLElement; // Render function for list items
 	listElements?: Map<number, HTMLElement>; // Map of index to rendered element
 	listPlaceholder?: HTMLElement; // Current placeholder element for list rendering (first element or span)
+	isVirtualList?: boolean;
+	virtualListUpdate?: () => void; // Update function for virtual list
 }
 
 // Map of dependencies to reactive elements
@@ -402,6 +404,21 @@ function processUpdate(state: unknown): void {
 		// Handle conditional rendering
 		if (info.isConditional && info.condition && info.renderFn) {
 			updateConditional(info, info.condition, info.renderFn, info.elseRenderFn);
+			continue;
+		}
+
+		// Handle virtual list rendering
+		if (info.isVirtualList && info.virtualListUpdate) {
+			// 如果状态是数组，更新虚拟列表的数据引用
+			const currentState = virtualListInstances.get(info.element);
+			if (currentState) {
+				// 如果触发更新的状态是数组，使用它作为新数据
+				// 否则保持当前数据
+				if (Array.isArray(state)) {
+					currentState.listData = state as unknown[];
+				}
+			}
+			info.virtualListUpdate();
 			continue;
 		}
 
@@ -1134,6 +1151,361 @@ function element(existingElement: HTMLElement): TagFunction {
 	};
 }
 
+// Virtual list types and function
+type VirtualListOptions = {
+	/** 每个项目的高度（固定高度）或获取高度的函数 */
+	itemHeight: number | ((index: number) => number);
+	/** 容器高度，默认使用父容器高度 */
+	containerHeight?: number;
+	/** 预渲染的项目数量（在可见区域前后），默认 5 */
+	overscan?: number;
+	/** 滚动容器元素，如果不提供则使用返回的容器 */
+	scrollContainer?: HTMLElement;
+};
+
+type VirtualListState = {
+	scrollTop: number;
+	containerHeight: number;
+	totalHeight: number;
+	startIndex: number;
+	endIndex: number;
+	visibleItems: HTMLElement[];
+	spacerTop: HTMLElement | null;
+	spacerBottom: HTMLElement | null;
+	listData: unknown[];
+	renderFn: (value: unknown, index: number) => HTMLElement;
+	options: VirtualListOptions;
+	contentContainer: HTMLElement;
+	rafId: number | null;
+};
+
+// Store virtual list instances for updates
+const virtualListInstances = new WeakMap<HTMLElement, VirtualListState>();
+
+function virtualList<T>(
+	deps: [T[], ...unknown[]],
+	renderFn: (value: T, index: number) => HTMLElement,
+	options: VirtualListOptions,
+): HTMLElement;
+function virtualList(
+	deps: Dependencies,
+	renderFn: (value: unknown, index: number) => HTMLElement,
+	options: VirtualListOptions,
+): HTMLElement;
+function virtualList<T = unknown>(
+	deps: [T[], ...unknown[]] | Dependencies,
+	renderFn: (value: T, index: number) => HTMLElement,
+	options: VirtualListOptions,
+): HTMLElement {
+	// 验证第一个依赖必须是数组
+	if (deps.length === 0 || !Array.isArray(deps[0])) {
+		throw new Error("h.virtualList: First dependency must be an array");
+	}
+
+	const listData = deps[0] as T[];
+	const otherDeps = deps.slice(1);
+	const renderFnInternal = renderFn as (
+		value: unknown,
+		index: number,
+	) => HTMLElement;
+
+	// 配置选项
+	const {
+		itemHeight,
+		containerHeight: initialContainerHeight,
+		overscan = 5,
+		scrollContainer: externalScrollContainer,
+	} = options;
+
+	// 计算项目高度的函数
+	const getItemHeight = (index: number): number => {
+		if (typeof itemHeight === "function") {
+			return itemHeight(index);
+		}
+		return itemHeight;
+	};
+
+	// 计算总高度
+	const calculateTotalHeight = (data: unknown[]): number => {
+		if (typeof itemHeight === "function") {
+			let total = 0;
+			for (let i = 0; i < data.length; i++) {
+				total += getItemHeight(i);
+			}
+			return total;
+		}
+		return data.length * itemHeight;
+	};
+
+	// 计算每个项目的偏移量
+	const getItemOffset = (index: number, _data: unknown[]): number => {
+		if (typeof itemHeight === "function") {
+			let offset = 0;
+			for (let i = 0; i < index; i++) {
+				offset += getItemHeight(i);
+			}
+			return offset;
+		}
+		return index * itemHeight;
+	};
+
+	// 创建容器
+	const container = document.createElement("div");
+	container.style.position = "relative";
+	container.style.overflow = "auto";
+	if (initialContainerHeight) {
+		container.style.height = `${initialContainerHeight}px`;
+	}
+
+	// 创建内容容器
+	const contentContainer = document.createElement("div");
+	contentContainer.style.position = "relative";
+	container.appendChild(contentContainer);
+
+	// 状态
+	const state: VirtualListState = {
+		scrollTop: 0,
+		containerHeight: initialContainerHeight || 0,
+		totalHeight: 0,
+		startIndex: 0,
+		endIndex: 0,
+		visibleItems: [],
+		spacerTop: null,
+		spacerBottom: null,
+		listData: listData as unknown[],
+		renderFn: renderFnInternal,
+		options,
+		contentContainer,
+		rafId: null,
+	};
+
+	// 更新容器高度
+	const updateContainerHeight = (): void => {
+		if (!initialContainerHeight) {
+			const rect = container.getBoundingClientRect();
+			state.containerHeight = rect.height || container.clientHeight;
+		} else {
+			state.containerHeight = initialContainerHeight;
+		}
+	};
+
+	// 计算可见范围
+	const calculateVisibleRange = (
+		data: unknown[],
+	): { start: number; end: number } => {
+		if (data.length === 0) {
+			return { start: 0, end: 0 };
+		}
+
+		const scrollTop = state.scrollTop;
+		const containerHeight = state.containerHeight;
+		const viewportTop = scrollTop;
+		const viewportBottom = scrollTop + containerHeight;
+
+		let start = 0;
+		let end = data.length - 1;
+
+		// 二分查找起始索引
+		if (typeof itemHeight === "function") {
+			// 可变高度：使用二分查找
+			let low = 0;
+			let high = data.length - 1;
+			while (low <= high) {
+				const mid = Math.floor((low + high) / 2);
+				const offset = getItemOffset(mid, data);
+				const itemHeightValue = getItemHeight(mid);
+				if (offset + itemHeightValue < viewportTop) {
+					low = mid + 1;
+				} else {
+					high = mid - 1;
+				}
+			}
+			start = low;
+
+			// 查找结束索引
+			low = start;
+			high = data.length - 1;
+			while (low <= high) {
+				const mid = Math.floor((low + high) / 2);
+				const offset = getItemOffset(mid, data);
+				if (offset > viewportBottom) {
+					high = mid - 1;
+				} else {
+					low = mid + 1;
+				}
+			}
+			end = high;
+		} else {
+			// 固定高度：直接计算
+			start = Math.floor(viewportTop / itemHeight);
+			end = Math.min(Math.ceil(viewportBottom / itemHeight), data.length - 1);
+		}
+
+		// 应用 overscan
+		start = Math.max(0, start - overscan);
+		end = Math.min(data.length - 1, end + overscan);
+
+		return { start, end };
+	};
+
+	// 渲染可见项目
+	const renderVisibleItems = (data: unknown[]): void => {
+		const { start, end } = calculateVisibleRange(data);
+		state.startIndex = start;
+		state.endIndex = end;
+
+		// 移除旧的可见项目
+		for (const item of state.visibleItems) {
+			if (item.parentNode === contentContainer) {
+				contentContainer.removeChild(item);
+			}
+		}
+		state.visibleItems = [];
+
+		// 创建顶部占位符
+		if (start > 0) {
+			const topOffset = getItemOffset(start, data);
+			if (!state.spacerTop) {
+				state.spacerTop = document.createElement("div");
+				state.spacerTop.style.position = "absolute";
+				state.spacerTop.style.top = "0";
+				state.spacerTop.style.left = "0";
+				state.spacerTop.style.right = "0";
+				contentContainer.appendChild(state.spacerTop);
+			}
+			state.spacerTop.style.height = `${topOffset}px`;
+		} else if (state.spacerTop) {
+			contentContainer.removeChild(state.spacerTop);
+			state.spacerTop = null;
+		}
+
+		// 渲染可见项目
+		for (let i = start; i <= end; i++) {
+			const item = renderFnInternal(data[i], i);
+			item.style.position = "absolute";
+			item.style.top = `${getItemOffset(i, data)}px`;
+			item.style.left = "0";
+			item.style.right = "0";
+			contentContainer.appendChild(item);
+			state.visibleItems.push(item);
+		}
+
+		// 创建底部占位符
+		const bottomOffset =
+			getItemOffset(data.length, data) - getItemOffset(end + 1, data);
+		if (bottomOffset > 0) {
+			if (!state.spacerBottom) {
+				state.spacerBottom = document.createElement("div");
+				state.spacerBottom.style.position = "absolute";
+				state.spacerBottom.style.bottom = "0";
+				state.spacerBottom.style.left = "0";
+				state.spacerBottom.style.right = "0";
+				contentContainer.appendChild(state.spacerBottom);
+			}
+			state.spacerBottom.style.height = `${bottomOffset}px`;
+			state.spacerBottom.style.top = `${getItemOffset(end + 1, data)}px`;
+		} else if (state.spacerBottom) {
+			contentContainer.removeChild(state.spacerBottom);
+			state.spacerBottom = null;
+		}
+
+		// 更新内容容器总高度
+		state.totalHeight = calculateTotalHeight(data);
+		contentContainer.style.height = `${state.totalHeight}px`;
+	};
+
+	// 处理滚动
+	const handleScroll = (): void => {
+		const scrollContainer = externalScrollContainer || container;
+		state.scrollTop = scrollContainer.scrollTop;
+
+		if (state.rafId === null) {
+			state.rafId = requestAnimationFrame(() => {
+				state.rafId = null;
+				renderVisibleItems(state.listData);
+			});
+		}
+	};
+
+	// 更新函数（当数据变化时调用）
+	const updateVirtualList = (newData: unknown[]): void => {
+		state.listData = newData;
+		state.totalHeight = calculateTotalHeight(newData);
+		contentContainer.style.height = `${state.totalHeight}px`;
+		renderVisibleItems(newData);
+	};
+
+	// 初始化
+	const init = (): void => {
+		updateContainerHeight();
+		state.totalHeight = calculateTotalHeight(listData as unknown[]);
+		contentContainer.style.height = `${state.totalHeight}px`;
+
+		const scrollContainer = externalScrollContainer || container;
+		scrollContainer.addEventListener("scroll", handleScroll, { passive: true });
+
+		// 监听窗口大小变化（如果使用父容器高度）
+		if (!initialContainerHeight) {
+			const resizeObserver = new ResizeObserver(() => {
+				updateContainerHeight();
+				renderVisibleItems(state.listData);
+			});
+			resizeObserver.observe(container);
+		}
+
+		// 初始渲染
+		renderVisibleItems(listData as unknown[]);
+	};
+
+	// 初始化
+	init();
+
+	// 存储状态以便更新
+	virtualListInstances.set(container, state);
+
+	// 注册到响应式系统，当数据数组变化时更新
+	for (const dep of [listData, ...otherDeps]) {
+		const depKey = dep as object;
+		const existing = reactiveElements.get(depKey);
+		if (existing) {
+			existing.add({
+				element: container,
+				attrs: {},
+				content: null,
+				tagName: "div",
+				isVirtualList: true,
+				virtualListUpdate: () => {
+					const currentState = virtualListInstances.get(container);
+					if (currentState) {
+						updateVirtualList(currentState.listData);
+					}
+				},
+			});
+		} else {
+			reactiveElements.set(
+				depKey,
+				new Set([
+					{
+						element: container,
+						attrs: {},
+						content: null,
+						tagName: "div",
+						isVirtualList: true,
+						virtualListUpdate: () => {
+							const currentState = virtualListInstances.get(container);
+							if (currentState) {
+								updateVirtualList(currentState.listData);
+							}
+						},
+					},
+				]),
+			);
+		}
+	}
+
+	return container;
+}
+
 // Whitelist of methods that should NOT be tag functions
 const WHITELIST = new Set([
 	"update",
@@ -1144,6 +1516,7 @@ const WHITELIST = new Set([
 	"css",
 	"innerHTML",
 	"element",
+	"virtualList",
 ]);
 
 // Proxy handler for dynamic tag access
@@ -1159,7 +1532,8 @@ const handler: ProxyHandler<HObject> = {
 		| typeof innerHTML
 		| typeof ifConditional
 		| typeof list
-		| typeof element {
+		| typeof element
+		| typeof virtualList {
 		if (WHITELIST.has(prop)) {
 			if (prop === "update") {
 				return update;
@@ -1181,6 +1555,9 @@ const handler: ProxyHandler<HObject> = {
 			}
 			if (prop === "element") {
 				return element;
+			}
+			if (prop === "virtualList") {
+				return virtualList;
 			}
 			// For watch - return no-op functions for now
 			return (() => {}) as TagFunction;
@@ -1206,6 +1583,7 @@ type HObject = {
 	if: typeof ifConditional;
 	list: typeof list;
 	element: typeof element;
+	virtualList: typeof virtualList;
 } & HTagElements & {
 		// Index signature for dynamic tags - always returns TagFunction via Proxy
 		[key: string]:
@@ -1216,7 +1594,8 @@ type HObject = {
 			| typeof innerHTML
 			| typeof ifConditional
 			| typeof list
-			| typeof element;
+			| typeof element
+			| typeof virtualList;
 	};
 
 // Create the h object with proxy
@@ -1234,6 +1613,7 @@ type HExport = {
 	if: typeof ifConditional;
 	list: typeof list;
 	element: typeof element;
+	virtualList: typeof virtualList;
 } & HTagElements & {
 		// Index signature that explicitly returns TagFunction (not TagFunction | undefined)
 		// This overrides the default behavior from noUncheckedIndexedAccess
@@ -1245,7 +1625,8 @@ type HExport = {
 			| typeof innerHTML
 			| typeof ifConditional
 			| typeof list
-			| typeof element;
+			| typeof element
+			| typeof virtualList;
 	};
 
 const h = _h as unknown as HExport;

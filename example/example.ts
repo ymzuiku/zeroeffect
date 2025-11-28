@@ -26,6 +26,17 @@ export const ExamplePage = () => {
 	// Todo List data
 	const todos: Array<{ id: number; text: string; completed: boolean }> = [];
 
+	// Virtual List data - 100,000 items
+	const virtualListItems: Array<{
+		id: number;
+		name: string;
+		value: number;
+	}> = Array.from({ length: 100000 }, (_, i) => ({
+		id: i,
+		name: `Item ${i}`,
+		value: Math.floor(Math.random() * 1000),
+	}));
+
 	const getCount = () => {
 		// mock api call, get count from api
 		state.count = 100;
@@ -278,6 +289,105 @@ export const ExamplePage = () => {
 					),
 				);
 			}),
+		),
+		// Virtual List example - can handle 100k+ items efficiently
+		h.div(
+			{ class: "mt-8 p-4 border border-gray-300 rounded-lg" },
+			h.h2({ class: "text-xl font-bold mb-4" }, "Virtual List (100,000 items)"),
+			h.div(
+				{ class: "mb-4 flex gap-2 items-center" },
+				h.span(
+					{ class: "text-sm text-gray-600" },
+					"Only visible items are rendered",
+				),
+				h.button(
+					{
+						class:
+							"px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600",
+						onclick: () => {
+							const newId = virtualListItems.length;
+							virtualListItems.push({
+								id: newId,
+								name: `Item ${newId}`,
+								value: Math.floor(Math.random() * 1000),
+							});
+							h.update(virtualListItems);
+						},
+					},
+					"Add Item",
+				),
+				h.button(
+					{
+						class: "px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600",
+						onclick: () => {
+							if (virtualListItems.length > 0) {
+								virtualListItems.pop();
+								h.update(virtualListItems);
+							}
+						},
+					},
+					"Remove Last",
+				),
+				h.span(
+					[virtualListItems],
+					{ class: "text-sm font-semibold" },
+					() => `Total: ${virtualListItems.length.toLocaleString()} items`,
+				),
+			),
+			h.virtualList(
+				[virtualListItems],
+				(item, index) => {
+					return h.div(
+						[item],
+						{
+							class: "p-3 border-b border-gray-200 hover:bg-gray-50",
+							style: () => ({
+								backgroundColor: index % 2 === 0 ? "#f9fafb" : "#ffffff",
+							}),
+						},
+						h.div(
+							{ class: "flex items-center justify-between" },
+							h.div(
+								{ class: "flex-1" },
+								h.span({ class: "font-semibold text-gray-800" }, `#${item.id}`),
+								h.span({ class: "ml-2 text-gray-600" }, item.name),
+							),
+							h.div(
+								{ class: "flex items-center gap-2" },
+								h.span(
+									{
+										class:
+											"px-2 py-1 bg-blue-100 text-blue-800 rounded text-sm",
+									},
+									`Value: ${item.value}`,
+								),
+								h.button(
+									{
+										class:
+											"px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-sm",
+										onclick: () => {
+											// Find the index of the item by id and remove it
+											const itemIndex = virtualListItems.findIndex(
+												(i) => i.id === item.id,
+											);
+											if (itemIndex !== -1) {
+												virtualListItems.splice(itemIndex, 1);
+												h.update(virtualListItems);
+											}
+										},
+									},
+									"Delete",
+								),
+							),
+						),
+					);
+				},
+				{
+					itemHeight: 60, // Fixed height for each item
+					containerHeight: 400, // Container height
+					overscan: 5, // Render 5 extra items above and below viewport
+				},
+			),
 		),
 	);
 };

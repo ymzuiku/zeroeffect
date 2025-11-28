@@ -37,6 +37,11 @@ const translations = {
 			content:
 				"使用 h.list() 渲染列表。第一个参数是依赖数组，第一个元素必须是列表数据数组，其他依赖是可选的。第二个参数是渲染函数，接收 value 和 index。当列表长度变化时：新增 item 时不会重新渲染现有元素，只添加新元素；删除 item 时会重新渲染整个列表（这是为了简化使用，不需要 key，并且索引一直是正确的）。每个列表项元素可以有自己的依赖，当这些依赖变化时，只有对应的项会更新。",
 		},
+		virtualList: {
+			title: "虚拟列表",
+			content:
+				"使用 h.virtualList() 渲染大量数据（10万+）。第一个参数是依赖数组，第一个元素必须是列表数据数组。第二个参数是渲染函数，接收 value 和 index。第三个参数是配置选项：itemHeight（固定高度或函数）、containerHeight（可选，默认使用父容器高度）、overscan（可选，预渲染项目数，默认5）。只渲染可见区域的项目，性能优异。数据变化时调用 h.update(items) 自动更新。",
+		},
 		element: {
 			title: "绑定已有元素",
 			content: "使用 h.element() 可以给已有的 DOM 元素绑定响应式属性和依赖。",
@@ -52,7 +57,7 @@ const translations = {
 		customTags: {
 			title: "自定义标签",
 			content:
-				"支持自定义标签，如 h['iconify-icon']。在 TypeScript 中，建议使用类型断言 h['iconify-icon' as 'div'] 来避免类型错误。只有白名单里的方法不会解析成标签函数：update, onUpdate, list, if, css, innerHTML, element。",
+				"支持自定义标签，如 h['iconify-icon']。在 TypeScript 中，建议使用类型断言 h['iconify-icon' as 'div'] 来避免类型错误。只有白名单里的方法不会解析成标签函数：update, onUpdate, list, if, css, innerHTML, element, virtualList。",
 		},
 		innerHTML: {
 			title: "innerHTML",
@@ -93,6 +98,11 @@ const translations = {
 			content:
 				"Use h.list() to render lists. The first parameter is a dependency array where the FIRST element MUST be the array to render, other dependencies are optional. The second parameter is a render function that receives value and index. When list length changes: adding items does NOT re-render existing elements, only new items are added; removing items re-renders the entire list (this simplifies usage - no key needed, and indices are always correct). Each list item element can have its own dependencies - when those dependencies change, only that specific item updates.",
 		},
+		virtualList: {
+			title: "Virtual List",
+			content:
+				"Use h.virtualList() to render large datasets (100k+ items). First parameter is dependency array where first element MUST be the array to render. Second parameter is render function (value, index). Third parameter is options: itemHeight (fixed number or function), containerHeight (optional, defaults to parent), overscan (optional, default 5). Only renders visible items for performance. Automatically updates when data changes via h.update(items).",
+		},
 		element: {
 			title: "Binding Existing Elements",
 			content:
@@ -110,7 +120,7 @@ const translations = {
 		customTags: {
 			title: "Custom Tags",
 			content:
-				"Custom tags are supported, like h['iconify-icon']. In TypeScript, use type assertion h['iconify-icon' as 'div'] to avoid type errors. Only whitelisted methods won't be parsed as tag functions: update, onUpdate, list, if, css, innerHTML, element.",
+				"Custom tags are supported, like h['iconify-icon']. In TypeScript, use type assertion h['iconify-icon' as 'div'] to avoid type errors. Only whitelisted methods won't be parsed as tag functions: update, onUpdate, list, if, css, innerHTML, element, virtualList.",
 		},
 		innerHTML: {
 			title: "innerHTML",
@@ -144,6 +154,13 @@ const exampleStates = {
 	style: { count: 0 },
 	conditional: { count: 0 },
 	list: { items: [1, 2, 3, 4, 5] },
+	virtualList: {
+		items: Array.from({ length: 100000 }, (_, i) => ({
+			id: i,
+			name: `Item ${i}`,
+			value: Math.floor(Math.random() * 1000),
+		})),
+	},
 	element: { count: 0 },
 	todo: {
 		todos: [] as Array<{
@@ -525,6 +542,229 @@ h.css(`
 		.doc-flex-row-sm {
 			flex-direction: row;
 		}
+		.doc-items-center-sm {
+			align-items: center;
+		}
+	}
+	
+	/* Semantic classes for examples */
+	.space-y-4 > * + * {
+		margin-top: 1rem;
+	}
+	.space-y-2 > * + * {
+		margin-top: 0.5rem;
+	}
+	
+	.title-xl {
+		font-size: 1.25rem;
+		line-height: 1.75rem;
+		font-weight: 700;
+	}
+	.title-lg {
+		font-size: 1.125rem;
+		line-height: 1.75rem;
+		font-weight: 700;
+	}
+	.text-sm {
+		font-size: 0.875rem;
+		line-height: 1.25rem;
+	}
+	.text-xs {
+		font-size: 0.75rem;
+		line-height: 1rem;
+	}
+	.text-gray {
+		color: #4b5563;
+	}
+	.text-gray-dark {
+		color: #1f2937;
+	}
+	.text-red {
+		color: #dc2626;
+	}
+	.text-green {
+		color: #16a34a;
+	}
+	.text-blue {
+		color: #2563eb;
+	}
+	.text-blue-dark {
+		color: #1e40af;
+	}
+	.font-bold {
+		font-weight: 700;
+	}
+	.font-semibold {
+		font-weight: 600;
+	}
+	
+	/* Buttons */
+	.green-button {
+		padding: 0.5rem 1rem;
+		background-color: #22c55e;
+		color: white;
+		border-radius: 0.25rem;
+		border: none;
+		cursor: pointer;
+	}
+	.green-button:hover {
+		background-color: #16a34a;
+	}
+	.red-button {
+		padding: 0.5rem 1rem;
+		background-color: #ef4444;
+		color: white;
+		border-radius: 0.25rem;
+		border: none;
+		cursor: pointer;
+	}
+	.red-button:hover {
+		background-color: #dc2626;
+	}
+	.blue-button {
+		padding: 0.5rem 1rem;
+		background-color: #3b82f6;
+		color: white;
+		border-radius: 0.25rem;
+		border: none;
+		cursor: pointer;
+	}
+	.blue-button:hover {
+		background-color: #2563eb;
+	}
+	.purple-button {
+		padding: 0.5rem 1rem;
+		background-color: #a855f7;
+		color: white;
+		border-radius: 0.25rem;
+		border: none;
+		cursor: pointer;
+	}
+	.purple-button:hover {
+		background-color: #9333ea;
+	}
+	.teal-button {
+		padding: 0.5rem 1rem;
+		background-color: #14b8a6;
+		color: white;
+		border-radius: 0.25rem;
+		border: none;
+		cursor: pointer;
+	}
+	.teal-button:hover {
+		background-color: #0d9488;
+	}
+	.yellow-button {
+		padding: 0.25rem 0.75rem;
+		background-color: #eab308;
+		color: white;
+		border-radius: 0.25rem;
+		border: none;
+		cursor: pointer;
+		font-size: 0.875rem;
+	}
+	.yellow-button:hover {
+		background-color: #ca8a04;
+	}
+	.pink-button {
+		padding: 0.5rem 1rem;
+		background-color: #ec4899;
+		color: white;
+		border-radius: 0.25rem;
+		border: none;
+		cursor: pointer;
+	}
+	.pink-button:hover {
+		background-color: #db2777;
+	}
+	.red-button-sm {
+		padding: 0.25rem 0.75rem;
+		background-color: #ef4444;
+		color: white;
+		border-radius: 0.25rem;
+		border: none;
+		cursor: pointer;
+		font-size: 0.875rem;
+	}
+	.red-button-sm:hover {
+		background-color: #dc2626;
+	}
+	
+	/* Components */
+	.card {
+		padding: 0.5rem;
+		margin-bottom: 0.5rem;
+		background-color: white;
+		border: 1px solid #e5e7eb;
+		border-radius: 0.25rem;
+	}
+	.list-item {
+		padding: 0.75rem;
+		border-bottom: 1px solid #e5e7eb;
+	}
+	.list-item:hover {
+		background-color: #f9fafb;
+	}
+	.badge {
+		padding: 0.25rem 0.5rem;
+		background-color: #dbeafe;
+		color: #1e40af;
+		border-radius: 0.25rem;
+		font-size: 0.875rem;
+	}
+	.input {
+		flex: 1 1 0%;
+		padding: 0.5rem 0.75rem;
+		border: 1px solid #d1d5db;
+		border-radius: 0.25rem;
+		font-size: 0.875rem;
+	}
+	
+	/* Layout */
+	.flex-row {
+		display: flex;
+		flex-direction: row;
+		gap: 0.5rem;
+		align-items: center;
+	}
+	.flex-col {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+	.flex-between {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+	}
+	.flex-center {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+	.flex-1 {
+		flex: 1 1 0%;
+	}
+	.ml-2 {
+		margin-left: 0.5rem;
+	}
+	.mb-2 {
+		margin-bottom: 0.5rem;
+	}
+	.mb-4 {
+		margin-bottom: 1rem;
+	}
+	.nowrap {
+		white-space: nowrap;
+	}
+	
+	@media (min-width: 640px) {
+		.flex-row-sm {
+			flex-direction: row;
+		}
+		.flex-col-sm {
+			flex-direction: column;
+		}
 	}
 `);
 
@@ -673,6 +913,19 @@ h.list(
 //   - Removing items: entire list re-renders (simplifies usage - no key needed, indices are always correct)
 // Individual items update when their own dependencies change
 
+// Virtual list (for large datasets, 100k+ items)
+h.virtualList(
+  [items], // First dep MUST be the array to render
+  (item, index) => h.div([item], () => \`Item: \${item}\`),
+  {
+    itemHeight: 50, // Fixed height or function: (index) => number
+    containerHeight: 600, // Optional, defaults to parent height
+    overscan: 5 // Optional, items to render outside viewport (default: 5)
+  }
+);
+// Only renders visible items for performance
+// Automatically updates when data changes via h.update(items)
+
 // Bind to existing element
 h.element(existingDiv)([state], () => state.text);
 \`\`\`
@@ -697,13 +950,21 @@ h.element(existingDiv)([state], () => state.text);
     - **Adding items**: existing elements won't re-render, only new items are added
     - **Removing items**: entire list re-renders (simplifies usage - no key needed, indices are always correct)
   - Individual items update when their own dependencies change
+- \`h.virtualList(deps, renderFn, options)\` - Virtual list for large datasets (100k+ items)
+  - **First dependency MUST be the array to render**
+  - \`renderFn(value, index)\`: Function that returns element for each item
+  - \`options.itemHeight\`: Fixed height (number) or function \`(index) => number\`
+  - \`options.containerHeight\`: Optional container height (defaults to parent)
+  - \`options.overscan\`: Optional items to render outside viewport (default: 5)
+  - Only renders visible items for performance
+  - Automatically updates when data changes via \`h.update(items)\`
 - \`h.element(element)\` - Bind reactive properties to existing element
 
 ## Important Notes
 
 - Multiple \`h.update()\` calls in same frame are batched
 - Falsy values (\`false\`, \`null\`, \`undefined\`, \`NaN\`, \`''\`) don't render
-- Custom tags: \`h["custom-tag"]()\` works, but reserved methods don't: \`update\`, \`onUpdate\`, \`list\`, \`if\`, \`css\`, \`innerHTML\`, \`element\`
+- Custom tags: \`h["custom-tag"]()\` works, but reserved methods don't: \`update\`, \`onUpdate\`, \`list\`, \`if\`, \`css\`, \`innerHTML\`, \`element\`, \`virtualList\`
 - **TypeScript**: For custom tags, use type assertion: \`h["iconify-icon" as "div"]({ ... })\` to avoid type errors
 - Elements must be in DOM for updates to work`;
 
@@ -829,12 +1090,12 @@ const app = h.div(
 	{ class: "space-y-4" },
 	h.div(
 		[state],
-		{ class: "text-xl font-bold" },
+		{ class: "title-xl" },
 		() => \`Count: \${state.count}\`
 	),
 	h.button(
 		{
-			class: "px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600",
+			class: "green-button",
 			onclick: () => {
 				state.count++;
 				h.update(state);
@@ -849,15 +1110,10 @@ document.body.append(app);`,
 				const state = exampleStates.gettingStarted as { count: number };
 				return h.div(
 					{ class: "space-y-4" },
-					h.div(
-						[state],
-						{ class: "text-xl font-bold" },
-						() => `Count: ${state.count}`,
-					),
+					h.div([state], { class: "title-xl" }, () => `Count: ${state.count}`),
 					h.button(
 						{
-							class:
-								"px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600",
+							class: "green-button",
 							onclick: () => {
 								state.count++;
 								h.update(state);
@@ -882,8 +1138,8 @@ const app = h.div(
 		{
 			class: () =>
 				state.name === "Jane"
-					? "text-red-500 font-bold"
-					: "text-blue-500 font-bold",
+					? "text-red font-bold"
+					: "text-blue font-bold",
 			onclick: () => {
 				state.name = state.name === "John" ? "Jane" : "John";
 				h.update(state);
@@ -903,102 +1159,14 @@ document.body.append(app);`,
 						{
 							class: () =>
 								state.name === "Jane"
-									? "text-red-500 font-bold"
-									: "text-blue-500 font-bold",
+									? "text-red font-bold"
+									: "text-blue font-bold",
 							onclick: () => {
 								state.name = state.name === "John" ? "Jane" : "John";
 								h.update(state);
 							},
 						},
 						() => `Name: ${state.name} (Click to toggle)`,
-					),
-				);
-			},
-		),
-		// Style Objects and Functions
-		createExampleSection(
-			"style",
-			`import { h } from "zeroeffect";
-
-const state = { count: 0 };
-
-const app = h.div(
-	{ class: "space-y-4" },
-	// Style object
-	h.div(
-		{
-			style: {
-				backgroundColor: "red",
-				color: "white",
-				padding: "10px",
-				borderRadius: "4px"
-			}
-		},
-		"Styled div (static)"
-	),
-	// Style function
-	h.div(
-		[state],
-		{
-			style: () => ({
-				backgroundColor: state.count % 2 === 0 ? "red" : "blue",
-				color: "white",
-				padding: "10px",
-				borderRadius: "4px"
-			})
-		},
-		() => \`Count: \${state.count} (dynamic style)\`
-	),
-	h.button(
-		{
-			class: "px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600",
-			onclick: () => {
-				state.count++;
-				h.update(state);
-			}
-		},
-		"Toggle"
-	)
-);
-
-document.body.append(app);`,
-			() => {
-				const state = exampleStates.style as { count: number };
-				return h.div(
-					{ class: "space-y-4" },
-					h.div(
-						{
-							style: {
-								backgroundColor: "red",
-								color: "white",
-								padding: "10px",
-								borderRadius: "4px",
-							},
-						},
-						"Styled div (static)",
-					),
-					h.div(
-						[state],
-						{
-							style: () => ({
-								backgroundColor: state.count % 2 === 0 ? "red" : "blue",
-								color: "white",
-								padding: "10px",
-								borderRadius: "4px",
-							}),
-						},
-						() => `Count: ${state.count} (dynamic style)`,
-					),
-					h.button(
-						{
-							class:
-								"px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600",
-							onclick: () => {
-								state.count++;
-								h.update(state);
-							},
-						},
-						"Toggle",
 					),
 				);
 			},
@@ -1014,25 +1182,25 @@ const app = h.div(
 	{ class: "space-y-4" },
 	h.div(
 		[state],
-		{ class: "text-lg font-bold mb-2" },
+		{ class: "title-lg mb-2" },
 		() => \`Count: \${state.count}\`
 	),
 	// With else function
 	h.if(
 		[state],
 		() => state.count % 2 === 0,
-		() => h.div({ class: "text-green-600 font-bold" }, "Even"),
-		() => h.div({ class: "text-red-600 font-bold" }, "Odd")
+		() => h.div({ class: "text-green font-bold" }, "Even"),
+		() => h.div({ class: "text-red font-bold" }, "Odd")
 	),
 	// Without else function (returns hidden span when false)
 	h.if(
 		[state],
 		() => state.count % 2 === 0,
-		() => h.div({ class: "text-blue-600" }, "I am even (no else)")
+		() => h.div({ class: "text-blue" }, "I am even (no else)")
 	),
 	h.button(
 		{
-			class: "px-4 py-2 bg-teal-500 text-white rounded hover:bg-teal-600",
+			class: "teal-button",
 			onclick: () => {
 				state.count++;
 				h.update(state);
@@ -1049,19 +1217,19 @@ document.body.append(app);`,
 					{ class: "space-y-4" },
 					h.div(
 						[state],
-						{ class: "text-lg font-bold mb-2" },
+						{ class: "title-lg mb-2" },
 						() => `Count: ${state.count}`,
 					),
 					h.if(
 						[state],
 						() => state.count % 2 === 0,
-						() => h.div({ class: "text-green-600 font-bold" }, "Even"),
-						() => h.div({ class: "text-red-600 font-bold" }, "Odd"),
+						() => h.div({ class: "text-green font-bold" }, "Even"),
+						() => h.div({ class: "text-red font-bold" }, "Odd"),
 					),
 					h.if(
 						[state],
 						() => state.count % 2 === 0,
-						() => h.div({ class: "text-blue-600" }, "I am even (no else)"),
+						() => h.div({ class: "text-blue" }, "I am even (no else)"),
 					),
 					h.button(
 						{
@@ -1098,7 +1266,7 @@ const app = h.div(
 				[value],
 				// Each item can have its own dependencies
 				{
-					class: "p-2 mb-2 bg-white border border-gray-200 rounded",
+					class: "card",
 					style: () => ({
 						backgroundColor: sharedState.highlight ? "#fef3c7" : "white"
 					})
@@ -1107,10 +1275,10 @@ const app = h.div(
 			)
 	),
 	h.div(
-		{ class: "flex flex-col sm:flex-row gap-2" },
+		{ class: "flex-col flex-row-sm" },
 		h.button(
 			{
-				class: "px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600",
+				class: "green-button",
 				onclick: () => {
 					list.push(list.length + 1);
 					h.update(list);
@@ -1121,7 +1289,7 @@ const app = h.div(
 		),
 		h.button(
 			{
-				class: "px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600",
+				class: "red-button",
 				onclick: () => {
 					if (list.length > 0) {
 						list.pop();
@@ -1135,7 +1303,7 @@ const app = h.div(
 		),
 		h.button(
 			{
-				class: "px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600",
+				class: "yellow-button",
 				onclick: () => {
 					sharedState.highlight = !sharedState.highlight;
 					h.update(sharedState);
@@ -1158,7 +1326,8 @@ document.body.append(app);`,
 							h.div(
 								[value], // Each item has its own dependency on the item value
 								{
-									class: "p-2 mb-2 bg-white border border-gray-200 rounded",
+									class:
+										"doc-p-2 doc-mb-2 doc-bg-white doc-border doc-border-gray-200 doc-rounded",
 									style: () => ({
 										backgroundColor: sharedState.highlight
 											? "#fef3c7"
@@ -1169,7 +1338,7 @@ document.body.append(app);`,
 							),
 					),
 					h.div(
-						{ class: "flex flex-col sm:flex-row gap-2" },
+						{ class: "flex-col flex-row-sm" },
 						h.button(
 							{
 								class:
@@ -1209,6 +1378,217 @@ document.body.append(app);`,
 				);
 			},
 		),
+		// Virtual List Rendering
+		createExampleSection(
+			"virtualList",
+			`import { h } from "zeroeffect";
+
+const items = Array.from({ length: 100000 }, (_, i) => ({
+	id: i,
+	name: \`Item \${i}\`,
+	value: Math.floor(Math.random() * 1000)
+}));
+
+// Virtual list for large datasets (100k+ items)
+// Only renders visible items for performance
+const app = h.div(
+	{ class: "space-y-4" },
+	h.div(
+		{ class: "flex-center mb-4" },
+		h.button(
+			{
+				class: "green-button",
+				onclick: () => {
+					const newId = items.length;
+					items.push({
+						id: newId,
+						name: \`Item \${newId}\`,
+						value: Math.floor(Math.random() * 1000)
+					});
+					h.update(items);
+				}
+			},
+			"Add Item"
+		),
+		h.button(
+			{
+				class: "red-button",
+				onclick: () => {
+					if (items.length > 0) {
+						items.pop();
+						h.update(items);
+					}
+				}
+			},
+			"Remove Last"
+		),
+		h.span(
+			[items],
+			{ class: "text-sm font-semibold" },
+			() => \`Total: \${items.length.toLocaleString()} items\`
+		)
+	),
+	h.virtualList(
+		[items],
+		(item, index) =>
+			h.div(
+				[item],
+				{
+					class: "list-item",
+					style: () => ({
+						backgroundColor: index % 2 === 0 ? "#f9fafb" : "#ffffff"
+					})
+				},
+				h.div(
+					{ class: "flex-between" },
+					h.div(
+						{ class: "flex-1" },
+						h.span({ class: "font-semibold text-gray-dark" }, \`#\${item.id}\`),
+						h.span({ class: "ml-2 text-gray" }, item.name)
+					),
+					h.div(
+						{ class: "flex-center" },
+						h.span(
+							{
+								class: "badge"
+							},
+							\`Value: \${item.value}\`
+						),
+						h.button(
+							{
+								class: "red-button-sm",
+								onclick: () => {
+									const itemIndex = items.findIndex(i => i.id === item.id);
+									if (itemIndex !== -1) {
+										items.splice(itemIndex, 1);
+										h.update(items);
+									}
+								}
+							},
+							"Delete"
+						)
+					)
+				)
+			),
+		{
+			itemHeight: 60, // Fixed height for each item
+			containerHeight: 400, // Container height
+			overscan: 5 // Render 5 extra items above and below viewport
+		}
+	)
+);
+
+document.body.append(app);`,
+			() => {
+				const virtualListState = exampleStates.virtualList as {
+					items: Array<{
+						id: number;
+						name: string;
+						value: number;
+					}>;
+				};
+				return h.div(
+					{ class: "space-y-4" },
+					h.div(
+						{
+							class:
+								"doc-flex doc-flex-col doc-flex-row-sm doc-gap-2 doc-items-center doc-mb-4",
+						},
+						h.button(
+							{
+								class:
+									"px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 whitespace-nowrap",
+								onclick: () => {
+									const newId = virtualListState.items.length;
+									virtualListState.items.push({
+										id: newId,
+										name: `Item ${newId}`,
+										value: Math.floor(Math.random() * 1000),
+									});
+									h.update(virtualListState.items);
+								},
+							},
+							"Add Item",
+						),
+						h.button(
+							{
+								class:
+									"px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 whitespace-nowrap",
+								onclick: () => {
+									if (virtualListState.items.length > 0) {
+										virtualListState.items.pop();
+										h.update(virtualListState.items);
+									}
+								},
+							},
+							"Remove Last",
+						),
+						h.span(
+							[virtualListState.items],
+							{ class: "text-sm font-semibold" },
+							() =>
+								`Total: ${virtualListState.items.length.toLocaleString()} items`,
+						),
+					),
+					h.virtualList(
+						[virtualListState.items],
+						(item, index) => {
+							return h.div(
+								[item],
+								{
+									class:
+										"doc-p-3 doc-border-b doc-border-gray-200 doc-hover-bg-gray-50",
+									style: () => ({
+										backgroundColor: index % 2 === 0 ? "#f9fafb" : "#ffffff",
+									}),
+								},
+								h.div(
+									{ class: "flex-between" },
+									h.div(
+										{ class: "flex-1" },
+										h.span(
+											{ class: "font-semibold text-gray-dark" },
+											`#${item.id}`,
+										),
+										h.span({ class: "ml-2 text-gray" }, item.name),
+									),
+									h.div(
+										{ class: "flex-center" },
+										h.span(
+											{
+												class: "badge",
+											},
+											`Value: ${item.value}`,
+										),
+										h.button(
+											{
+												class:
+													"px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-sm",
+												onclick: () => {
+													const itemIndex = virtualListState.items.findIndex(
+														(i) => i.id === item.id,
+													);
+													if (itemIndex !== -1) {
+														virtualListState.items.splice(itemIndex, 1);
+														h.update(virtualListState.items);
+													}
+												},
+											},
+											"Delete",
+										),
+									),
+								),
+							);
+						},
+						{
+							itemHeight: 60,
+							containerHeight: 400,
+							overscan: 5,
+						},
+					),
+				);
+			},
+		),
 		// h.element
 		createExampleSection(
 			"element",
@@ -1226,7 +1606,8 @@ document.body.append(existingDiv);`,
 			() => {
 				const state = exampleStates.element as { count: number };
 				const demoDiv = document.createElement("div");
-				demoDiv.className = "p-2 border border-gray-300 rounded";
+				demoDiv.className =
+					"doc-p-2 doc-border doc-border-gray-300 doc-rounded";
 				h.element(demoDiv)([state], () => `Count: ${state.count}`);
 				return demoDiv;
 			},
@@ -1306,7 +1687,7 @@ const todoList = h.list(
 				value: () => todo.text,
 				onblur: () => h.update(todo)
 			}),
-			h.span([todo], { class: "text-xs text-gray-500" }, () =>
+			h.span([todo], { class: "text-xs text-gray" }, () =>
 				\`Rendered: \${todo.renderTime}\`
 			),
 			h.button({
@@ -1339,12 +1720,15 @@ document.body.append(app);`,
 				return h.div(
 					{ class: "space-y-4" },
 					h.div(
-						{ class: "flex flex-col sm:flex-row gap-2 mb-4" },
+						{
+							class: "flex-col flex-row-sm mb-4",
+						},
 						h.input({
 							id: "doc-todo-input",
 							type: "text",
 							placeholder: "Enter todo item...",
-							class: "flex-1 px-3 py-2 border border-gray-300 rounded text-sm",
+							class:
+								"doc-flex-1 doc-px-3 doc-py-2 doc-border doc-border-gray-300 doc-rounded doc-text-sm",
 							onkeydown: (e: KeyboardEvent) => {
 								if (e.key === "Enter") {
 									const input = e.target as HTMLInputElement;
@@ -1399,7 +1783,7 @@ document.body.append(app);`,
 								[todo],
 								{
 									class:
-										"flex flex-col sm:flex-row items-start sm:items-center gap-2 p-2 mb-2 border border-gray-200 rounded",
+										"doc-flex doc-flex-col doc-flex-row-sm doc-items-start doc-items-center doc-gap-2 doc-p-2 doc-mb-2 doc-border doc-border-gray-200 doc-rounded",
 									style: () => ({
 										opacity: todo.completed ? 0.6 : 1,
 										textDecoration: todo.completed ? "line-through" : "none",
@@ -1416,7 +1800,7 @@ document.body.append(app);`,
 								h.span([todo], { class: "flex-1 text-sm" }, () => todo.text),
 								h.span(
 									[todo],
-									{ class: "text-xs text-gray-500" },
+									{ class: "text-xs text-gray" },
 									() => `Rendered: ${todo.renderTime}`,
 								),
 								h.button(
@@ -1461,15 +1845,15 @@ h.css(\`
 \`);
 
 const app = h.div(
-	h.p({ class: "text-red-500" }, "This is red text"),
-	h.p({ class: "text-blue-500" }, "This is blue text")
+	h.p({ class: "text-red" }, "This is red text"),
+	h.p({ class: "text-blue" }, "This is blue text")
 );
 
 document.body.append(app);`,
 			() =>
 				h.div(
-					h.p({ class: "text-red-500" }, "This is red text"),
-					h.p({ class: "text-blue-500" }, "This is blue text"),
+					h.p({ class: "text-red" }, "This is red text"),
+					h.p({ class: "text-blue" }, "This is blue text"),
 				),
 		),
 		// Custom Tags (moved to end)
@@ -1485,7 +1869,7 @@ const app = h.div(
 		icon: "material-symbols:agriculture",
 		style: { fontSize: "48px" }
 	}),
-	h.div({ class: "text-sm text-gray-600" }, "Iconify icon above")
+	h.div({ class: "text-sm text-gray" }, "Iconify icon above")
 );
 
 document.body.append(app);`,
@@ -1501,7 +1885,7 @@ document.body.append(app);`,
 								})
 							: h.div("Iconify icon");
 					})(),
-					h.div({ class: "text-sm text-gray-600" }, "Iconify icon above"),
+					h.div({ class: "text-sm text-gray" }, "Iconify icon above"),
 				),
 		),
 		// innerHTML (moved to end)
@@ -1510,7 +1894,7 @@ document.body.append(app);`,
 			`import { h } from "zeroeffect";
 
 const app = h.div(
-	{ class: "flex items-center gap-2" },
+	{ class: "flex-center" },
 	h.innerHTML(
 		\`<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2m3.3 14.71L11 12.41V7h2v4.59l3.71 3.71z"/></svg>\`
 	),
@@ -1520,7 +1904,7 @@ const app = h.div(
 document.body.append(app);`,
 			() =>
 				h.div(
-					{ class: "flex items-center gap-2" },
+					{ class: "flex-center" },
 					h.innerHTML(
 						`<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2m3.3 14.71L11 12.41V7h2v4.59l3.71 3.71z"/></svg>`,
 					),
@@ -1542,7 +1926,7 @@ const app = h.div(
 	h.div("0"),
 	h.button(
 		{
-			class: "px-4 py-2 bg-pink-500 text-white rounded hover:bg-pink-600",
+			class: "pink-button",
 			onclick: () => {
 				state.show = !state.show;
 				h.update(state);
@@ -1563,14 +1947,100 @@ document.body.append(app);`,
 					h.div("0"),
 					h.button(
 						{
-							class:
-								"px-4 py-2 bg-pink-500 text-white rounded hover:bg-pink-600",
+							class: "pink-button",
 							onclick: () => {
 								state.show = !state.show;
 								h.update(state);
 							},
 						},
 						() => (state.show ? "Hide" : "Show"),
+					),
+				);
+			},
+		),
+		// Style Objects and Functions (moved to end)
+		createExampleSection(
+			"style",
+			`import { h } from "zeroeffect";
+
+const state = { count: 0 };
+
+const app = h.div(
+	{ class: "space-y-4" },
+	// Style object
+	h.div(
+		{
+			style: {
+				backgroundColor: "red",
+				color: "white",
+				padding: "10px",
+				borderRadius: "4px"
+			}
+		},
+		"Styled div (static)"
+	),
+	// Style function
+	h.div(
+		[state],
+		{
+			style: () => ({
+				backgroundColor: state.count % 2 === 0 ? "red" : "blue",
+				color: "white",
+				padding: "10px",
+				borderRadius: "4px"
+			})
+		},
+		() => \`Count: \${state.count} (dynamic style)\`
+	),
+	h.button(
+		{
+			class: "purple-button",
+			onclick: () => {
+				state.count++;
+				h.update(state);
+			}
+		},
+		"Toggle"
+	)
+);
+
+document.body.append(app);`,
+			() => {
+				const state = exampleStates.style as { count: number };
+				return h.div(
+					{ class: "space-y-4" },
+					h.div(
+						{
+							style: {
+								backgroundColor: "red",
+								color: "white",
+								padding: "10px",
+								borderRadius: "4px",
+							},
+						},
+						"Styled div (static)",
+					),
+					h.div(
+						[state],
+						{
+							style: () => ({
+								backgroundColor: state.count % 2 === 0 ? "red" : "blue",
+								color: "white",
+								padding: "10px",
+								borderRadius: "4px",
+							}),
+						},
+						() => `Count: ${state.count} (dynamic style)`,
+					),
+					h.button(
+						{
+							class: "purple-button",
+							onclick: () => {
+								state.count++;
+								h.update(state);
+							},
+						},
+						"Toggle",
 					),
 				);
 			},
