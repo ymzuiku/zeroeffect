@@ -1,4 +1,4 @@
-import { h } from "../src";
+import { h } from "zeroeffect";
 
 // Will create a style tag and insert it into the head
 h.css(`

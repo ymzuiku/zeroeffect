@@ -1,4 +1,4 @@
-import { h } from "../src";
+import { h } from "zeroeffect";
 
 // Language state - must be reactive
 const langState = { current: "en" as "zh" | "en" };
@@ -607,7 +607,7 @@ zeroeffect is a reactive DOM library that uses **plain JavaScript objects** as s
 ## Basic Usage
 
 \`\`\`typescript
-import { h } from "./src";
+import { h } from "zeroeffect";
 
 // State is just a plain object
 const state = { count: 0 };

@@ -9,7 +9,7 @@ No Signal, no Proxy, no Virtual DOM.
 ## Basic Usage
 
 ```typescript
-import { h } from "./src";
+import { h } from "zeroeffect";
 
 // State is just a plain object
 const state = { count: 0 };
