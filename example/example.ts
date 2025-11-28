@@ -24,11 +24,7 @@ export const ExamplePage = () => {
 	const list = [1, 2, 3, 4, 5];
 
 	// Todo List 数据
-	const todos: Array<{ id: number; text: string; completed: boolean }> = [
-		{ id: 1, text: "学习 TypeScript", completed: false },
-		{ id: 2, text: "实现响应式 DOM 库", completed: true },
-		{ id: 3, text: "编写文档", completed: false },
-	];
+	const todos: Array<{ id: number; text: string; completed: boolean }> = [];
 
 	const getCount = () => {
 		// mock api call, get count from api
@@ -55,7 +51,12 @@ export const ExamplePage = () => {
 	console.log("re-render only once");
 
 	// h.div 等等常用的所有标签函数，都是函数，返回一个 DOM 元素，一些特殊字符串也会被解析成标签, 比如 h['iconify-icon'] 会解析成 <iconify-icon> 标签
-	// 只有白名单里的不会解析成标签函数：update, onUpdate, watch, list, if, css, innerHTML, 否则都会解析成标签函数
+	// 只有白名单里的不会解析成标签函数：update, onUpdate, watch, list, if, css, innerHTML, element, 否则都会解析成标签函数
+
+	// 创建一个已有的元素，用于演示 h.ref 功能
+	const existingDiv = document.createElement("div");
+	existingDiv.textContent = "Initial content";
+
 	return h.div(
 		// 第一个参数如果时数组，就会作为依赖，当数组中的对象发生变化时，会触发函数进行响应， 依赖可以有多个
 		// 当执行 h.update包含 state 时，会触发函数进行响应， 因为描述了 [state]
@@ -64,6 +65,10 @@ export const ExamplePage = () => {
 			{ class: "text-2xl font-bold" },
 			() => `Count: ${state.count} -- ${new Date().toISOString()}`,
 			h.span([state], () => (state.count % 2 === 0 ? "Even" : "Odd")),
+		),
+		// h.element 用于给已有的 DOM 元素绑定响应式属性和依赖
+		h.element(existingDiv)([state], { class: "text-2xl font-bold" }, () =>
+			state.count % 2 === 0 ? "Even" : "Odd",
 		),
 		// 支持自定义组件, TS 中由于类型系统 建议使用 as 断言成已知类型
 		h["iconify-icon" as "div"]({
@@ -119,15 +124,24 @@ export const ExamplePage = () => {
 			() => `Count: ${state.count} -- ${new Date().toISOString()}`,
 		),
 		// 支持 if 条件渲染, 如果条件为 true，则渲染内容，否则不渲染
+		// h.if(
+		// 	// 第一个参数必须是一个数组，表示依赖，要做类型约束
+		// 	[state],
+		// 	// 第二个参数必须是一个函数，表示条件，要做类型约束，返回不需要是 boolean，只要值为真就行
+		// 	() => state.count % 2 === 0,
+		// 	// 第三个参数必须是一个函数，真时，表示渲染内容
+		// 	() => h.div([state], "I am even"),
+		// 	// 如果有第4个参数，则会在条件为 false 时渲染
+		// 	() => h.div([state], "I am odd"),
+		// ),
 		h.if(
-			// 第一个参数必须是一个数组，表示依赖，要做类型约束
 			[state],
-			// 第二个参数必须是一个函数，表示条件，要做类型约束，返回不需要是 boolean，只要值为真就行
 			() => state.count % 2 === 0,
-			// 第三个参数必须是一个函数，真时，表示渲染内容
-			() => h.div([state], "I am even"),
-			// 如果有第4个参数，则会在条件为 false 时渲染
-			() => h.div([state], "I am odd"),
+			() => {
+				// 这行都没打印
+				console.log("==debug==", state.count % 2 === 0);
+				return h.div([state], "I am even2");
+			},
 		),
 		h.list(
 			// 第一个参数还是依赖，而且第一个参数数组的第一个参数需要是宿主, 可以有多个参数，其他参数只是普通依赖

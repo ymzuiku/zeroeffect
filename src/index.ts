@@ -119,6 +119,11 @@ function renderContent(content: Content): Node[] {
 			return [];
 		}
 		if (result instanceof HTMLElement) {
+			// Check if this is a list element (index 0)
+			const listIndex = result.getAttribute("data-ns-list");
+			if (listIndex === "0") {
+				insertListRemainingElements(result);
+			}
 			return [result];
 		}
 		return [document.createTextNode(String(result))];
@@ -127,9 +132,50 @@ function renderContent(content: Content): Node[] {
 		return [];
 	}
 	if (content instanceof HTMLElement) {
+		// Check if this is a list element (index 0)
+		const listIndex = content.getAttribute("data-ns-list");
+		if (listIndex === "0") {
+			insertListRemainingElements(content);
+		}
 		return [content];
 	}
 	return [document.createTextNode(String(content))];
+}
+
+// Insert remaining list elements after the first element
+function insertListRemainingElements(firstElement: HTMLElement): void {
+	// Find the reactive info using the WeakMap
+	const info = listFirstElementMap.get(firstElement);
+	if (!info?.isList || !info.listElements) {
+		return;
+	}
+
+	const listElements = info.listElements;
+	const parent = firstElement.parentNode;
+
+	// If first element is not in DOM yet, schedule insertion for next frame
+	if (!parent) {
+		// Prevent duplicate scheduling
+		if (!scheduledInsertions.has(firstElement)) {
+			scheduledInsertions.add(firstElement);
+			requestAnimationFrame(() => {
+				scheduledInsertions.delete(firstElement);
+				insertListRemainingElements(firstElement);
+			});
+		}
+		return;
+	}
+
+	// Insert elements in order
+	let lastInserted = firstElement;
+	for (let i = 1; i < listElements.size; i++) {
+		const element = listElements.get(i);
+		if (element && !element.parentNode) {
+			// Insert after lastInserted
+			parent.insertBefore(element, lastInserted.nextSibling);
+			lastInserted = element;
+		}
+	}
 }
 
 // Apply style object directly to element.style
@@ -268,13 +314,28 @@ function createReactiveElement(
 
 	if (content) {
 		const contents = Array.isArray(content) ? content : [content];
+		// Track list first elements that need insertion
+		const listFirstElements: HTMLElement[] = [];
+
 		for (const item of contents) {
 			const nodes = renderContent(item);
 			for (const node of nodes) {
 				container.appendChild(node);
+				// Check if this is a list first element
+				if (
+					node instanceof HTMLElement &&
+					node.getAttribute("data-ns-list") === "0"
+				) {
+					listFirstElements.push(node);
+				}
 			}
 		}
 		element.appendChild(container);
+
+		// Insert remaining elements for all list first elements
+		for (const firstElement of listFirstElements) {
+			insertListRemainingElements(firstElement);
+		}
 	}
 
 	return element;
@@ -290,16 +351,25 @@ interface ReactiveElementInfo {
 	condition?: () => unknown; // Return value doesn't need to be boolean, just truthy/falsy
 	renderFn?: () => HTMLElement;
 	elseRenderFn?: () => HTMLElement; // Optional else render function
+	conditionalPlaceholder?: HTMLElement; // Current placeholder element for conditional rendering
 	isList?: boolean;
 	listData?: unknown[]; // The array data (first element of deps)
 	listDeps?: unknown[]; // Other dependencies besides the list
 	listRenderFn?: (value: unknown, index: number) => HTMLElement; // Render function for list items
 	listElements?: Map<number, HTMLElement>; // Map of index to rendered element
+	listPlaceholder?: HTMLElement; // Current placeholder element for list rendering (first element or span)
 }
 
 // Map of dependencies to reactive elements
-// Using Map with object identity for tracking
-const reactiveElements = new Map<object, Set<ReactiveElementInfo>>();
+// Using WeakMap with object identity for tracking
+// WeakMap automatically cleans up when state objects are garbage collected
+const reactiveElements = new WeakMap<object, Set<ReactiveElementInfo>>();
+
+// Map of list first elements to their reactive info (for inserting remaining elements)
+const listFirstElementMap = new WeakMap<HTMLElement, ReactiveElementInfo>();
+
+// Set to track elements that are scheduled for insertion (prevent duplicate requestAnimationFrame)
+const scheduledInsertions = new WeakSet<HTMLElement>();
 
 // Update callbacks
 const updateCallbacks: Set<() => void> = new Set();
@@ -316,63 +386,67 @@ let updateScheduled = false;
 // Process updates for a state object
 function processUpdate(state: unknown): void {
 	const elements = reactiveElements.get(state as object);
-	if (elements) {
-		for (const info of elements) {
-			// Handle conditional rendering
-			if (info.isConditional && info.condition && info.renderFn) {
-				updateConditional(
-					info.element,
-					info.condition,
-					info.renderFn,
-					info.elseRenderFn,
-				);
-				continue;
-			}
+	if (!elements) {
+		return;
+	}
 
-			// Handle list rendering
-			if (
-				info.isList &&
-				info.listData &&
-				info.listRenderFn &&
-				info.listElements
-			) {
-				// Update list data from the state that triggered the update
-				// If the state is the list itself, use it; otherwise keep current list
-				const newListData = Array.isArray(state)
-					? (state as unknown[])
-					: info.listData;
-				updateList(
-					info.element,
-					newListData,
-					info.listRenderFn,
-					info.listElements,
-				);
-				// Update stored list data
-				info.listData = newListData;
-				continue;
-			}
-
-			// Clear existing content
-			info.element.textContent = "";
-
-			// Re-apply attributes (skip event handlers as they're already added)
-			applyAttributes(info.element, info.attrs, true);
-
-			// Re-render content
-			if (info.content) {
-				const container = document.createDocumentFragment();
-				const contents = Array.isArray(info.content)
-					? info.content
-					: [info.content];
-				for (const item of contents) {
-					const nodes = renderContent(item);
-					for (const node of nodes) {
-						container.appendChild(node);
-					}
-				}
-				info.element.appendChild(container);
-			}
+	// Process updates for valid elements and clean up stale ones in one pass
+	const staleElements: ReactiveElementInfo[] = [];
+	for (const info of elements) {
+		// Check if element is still connected to DOM
+		if (!info.element.isConnected) {
+			staleElements.push(info);
+			continue;
 		}
+		// Handle conditional rendering
+		if (info.isConditional && info.condition && info.renderFn) {
+			updateConditional(info, info.condition, info.renderFn, info.elseRenderFn);
+			continue;
+		}
+
+		// Handle list rendering
+		if (
+			info.isList &&
+			info.listData &&
+			info.listRenderFn &&
+			info.listElements
+		) {
+			// Update list data from the state that triggered the update
+			// If the state is the list itself, use it; otherwise keep current list
+			const newListData = Array.isArray(state)
+				? (state as unknown[])
+				: info.listData;
+			updateList(info, newListData, info.listRenderFn, info.listElements);
+			// Update stored list data
+			info.listData = newListData;
+			continue;
+		}
+
+		// Clear existing content
+		info.element.textContent = "";
+
+		// Re-apply attributes (skip event handlers as they're already added)
+		applyAttributes(info.element, info.attrs, true);
+
+		// Re-render content
+		if (info.content) {
+			const container = document.createDocumentFragment();
+			const contents = Array.isArray(info.content)
+				? info.content
+				: [info.content];
+			for (const item of contents) {
+				const nodes = renderContent(item);
+				for (const node of nodes) {
+					container.appendChild(node);
+				}
+			}
+			info.element.appendChild(container);
+		}
+	}
+
+	// Clean up stale elements after processing
+	for (const stale of staleElements) {
+		elements.delete(stale);
 	}
 }
 
@@ -555,52 +629,38 @@ function ifConditional(
 	renderFn: () => HTMLElement,
 	elseRenderFn?: () => HTMLElement,
 ): HTMLElement {
-	// Create a container element to hold the conditionally rendered content
-	const container = document.createElement("div");
+	const initialElement = document.createElement("span");
+	initialElement.style.display = "none";
 
 	// Track this conditional element's dependencies
+	const reactiveInfo: ReactiveElementInfo = {
+		element: initialElement,
+		attrs: {},
+		content: null,
+		tagName: initialElement.tagName.toLowerCase(),
+		isConditional: true,
+		condition,
+		renderFn,
+		elseRenderFn,
+		conditionalPlaceholder: initialElement,
+	};
+
 	for (const dep of deps) {
 		const depKey = dep as object;
 		const existing = reactiveElements.get(depKey);
 		if (existing) {
-			existing.add({
-				element: container,
-				attrs: {},
-				content: null,
-				tagName: "div",
-				isConditional: true,
-				condition,
-				renderFn,
-				elseRenderFn,
-			});
+			existing.add(reactiveInfo);
 		} else {
-			reactiveElements.set(
-				depKey,
-				new Set([
-					{
-						element: container,
-						attrs: {},
-						content: null,
-						tagName: "div",
-						isConditional: true,
-						condition,
-						renderFn,
-						elseRenderFn,
-					},
-				]),
-			);
+			reactiveElements.set(depKey, new Set([reactiveInfo]));
 		}
 	}
 
-	// Initial render
-	updateConditional(container, condition, renderFn, elseRenderFn);
-
-	return container;
+	return initialElement;
 }
 
 // Update conditional rendering
 function updateConditional(
-	container: HTMLElement,
+	reactiveInfo: ReactiveElementInfo,
 	condition: () => unknown,
 	renderFn: () => HTMLElement,
 	elseRenderFn?: () => HTMLElement,
@@ -608,19 +668,58 @@ function updateConditional(
 	const conditionResult = condition();
 	const shouldRender = Boolean(conditionResult);
 
-	// Clear container
-	container.textContent = "";
+	const currentPlaceholder = reactiveInfo.conditionalPlaceholder;
+	if (!currentPlaceholder) {
+		// Initialize placeholder if not set
+		const initialPlaceholder = document.createElement("div");
+		reactiveInfo.conditionalPlaceholder = initialPlaceholder;
+		reactiveInfo.element = initialPlaceholder;
+		return;
+	}
+
+	const parent = currentPlaceholder.parentNode;
+
+	if (!parent) {
+		// Placeholder not in DOM yet, just update the reference
+		if (shouldRender) {
+			const newElement = renderFn();
+			reactiveInfo.conditionalPlaceholder = newElement;
+			reactiveInfo.element = newElement;
+		} else if (elseRenderFn) {
+			const newElement = elseRenderFn();
+			reactiveInfo.conditionalPlaceholder = newElement;
+			reactiveInfo.element = newElement;
+		} else {
+			// Create span placeholder
+			const spanPlaceholder = document.createElement("span");
+			spanPlaceholder.style.display = "none";
+			reactiveInfo.conditionalPlaceholder = spanPlaceholder;
+			reactiveInfo.element = spanPlaceholder;
+		}
+		return;
+	}
 
 	if (shouldRender) {
-		// Render content when condition is truthy
-		const content = renderFn();
-		container.appendChild(content);
+		// Condition is true - replace placeholder with actual element
+		const newElement = renderFn();
+		parent.replaceChild(newElement, currentPlaceholder);
+		// Update references - new element becomes the placeholder
+		reactiveInfo.conditionalPlaceholder = newElement;
+		reactiveInfo.element = newElement;
 	} else if (elseRenderFn) {
-		// Render else content when condition is falsy and else function is provided
-		const content = elseRenderFn();
-		container.appendChild(content);
+		// Condition is false but has else function - replace with else element
+		const newElement = elseRenderFn();
+		parent.replaceChild(newElement, currentPlaceholder);
+		reactiveInfo.conditionalPlaceholder = newElement;
+		reactiveInfo.element = newElement;
+	} else {
+		// Condition is false and no else function - replace with span placeholder
+		const spanPlaceholder = document.createElement("span");
+		spanPlaceholder.style.display = "none";
+		parent.replaceChild(spanPlaceholder, currentPlaceholder);
+		reactiveInfo.conditionalPlaceholder = spanPlaceholder;
+		reactiveInfo.element = spanPlaceholder;
 	}
-	// If condition is falsy and no else function, container remains empty
 }
 
 // List function - renders a list of items with efficient diffing
@@ -652,80 +751,316 @@ function list<T = unknown>(
 		index: number,
 	) => HTMLElement;
 
-	// Create a container element to hold the list items
-	const container = document.createElement("div");
-
 	// Store list elements for efficient updates
 	const listElements = new Map<number, HTMLElement>();
 
+	// Create initial placeholder - will be replaced by actual elements
+	let initialPlaceholder: HTMLElement;
+	if (listData.length === 0) {
+		// Empty list - create hidden span
+		initialPlaceholder = document.createElement("span");
+		initialPlaceholder.style.display = "none";
+		initialPlaceholder.setAttribute("data-ns-list", "0");
+	} else {
+		// Non-empty list - use first element as placeholder
+		initialPlaceholder = renderFnInternal(listData[0], 0);
+		initialPlaceholder.setAttribute("data-ns-list", "0");
+		// Store first element
+		listElements.set(0, initialPlaceholder);
+		// Render remaining elements and store them
+		// They will be inserted when the first element is processed by renderContent
+		for (let i = 1; i < listData.length; i++) {
+			const element = renderFnInternal(listData[i], i);
+			listElements.set(i, element);
+		}
+	}
+
 	// Track dependencies (both list and other deps)
 	const allDeps = [listData, ...otherDeps];
+	const reactiveInfo: ReactiveElementInfo = {
+		element: initialPlaceholder,
+		attrs: {},
+		content: null,
+		tagName: initialPlaceholder.tagName.toLowerCase(),
+		isList: true,
+		listData,
+		listDeps: otherDeps,
+		listRenderFn: renderFnInternal,
+		listElements,
+		listPlaceholder: initialPlaceholder,
+	};
+
+	// Store mapping from first element to reactive info
+	if (listData.length > 0) {
+		listFirstElementMap.set(initialPlaceholder, reactiveInfo);
+	}
+
 	for (const dep of allDeps) {
 		const depKey = dep as object;
 		const existing = reactiveElements.get(depKey);
 		if (existing) {
-			existing.add({
-				element: container,
-				attrs: {},
-				content: null,
-				tagName: "div",
-				isList: true,
-				listData,
-				listDeps: otherDeps,
-				listRenderFn: renderFnInternal,
-				listElements,
-			});
+			existing.add(reactiveInfo);
 		} else {
-			reactiveElements.set(
-				depKey,
-				new Set([
-					{
-						element: container,
-						attrs: {},
-						content: null,
-						tagName: "div",
-						isList: true,
-						listData,
-						listDeps: otherDeps,
-						listRenderFn: renderFnInternal,
-						listElements,
-					},
-				]),
-			);
+			reactiveElements.set(depKey, new Set([reactiveInfo]));
 		}
 	}
 
-	// Initial render
-	updateList(container, listData, renderFnInternal, listElements);
-
-	return container;
+	return initialPlaceholder;
 }
 
 // Update list rendering - only manages length changes for best performance
 // When length changes, re-sync the entire list to ensure correctness
 function updateList(
-	container: HTMLElement,
+	reactiveInfo: ReactiveElementInfo,
 	newListData: unknown[],
 	renderFn: (value: unknown, index: number) => HTMLElement,
 	listElements: Map<number, HTMLElement>,
 ): void {
-	const currentLength = container.children.length;
+	const currentPlaceholder = reactiveInfo.listPlaceholder;
+	if (!currentPlaceholder) {
+		// Initialize if not set
+		if (newListData.length === 0) {
+			const spanPlaceholder = document.createElement("span");
+			spanPlaceholder.style.display = "none";
+			spanPlaceholder.setAttribute("data-ns-list", "0");
+			reactiveInfo.listPlaceholder = spanPlaceholder;
+			reactiveInfo.element = spanPlaceholder;
+		} else {
+			const firstElement = renderFn(newListData[0], 0);
+			firstElement.setAttribute("data-ns-list", "0");
+			listElements.set(0, firstElement);
+			// Render remaining elements
+			let lastInserted = firstElement;
+			for (let i = 1; i < newListData.length; i++) {
+				const element = renderFn(newListData[i], i);
+				listElements.set(i, element);
+				if (firstElement.parentNode) {
+					firstElement.parentNode.insertBefore(
+						element,
+						lastInserted.nextSibling,
+					);
+					lastInserted = element;
+				}
+			}
+			reactiveInfo.listPlaceholder = firstElement;
+			reactiveInfo.element = firstElement;
+		}
+		return;
+	}
+
+	const currentLength = listElements.size;
 	const newLength = newListData.length;
 
 	// Only update if length changed
 	if (newLength !== currentLength) {
-		// Clear container and re-render all items
-		container.textContent = "";
-		listElements.clear();
+		const parent = currentPlaceholder.parentNode;
 
-		// Re-render all items with new indices
-		for (let i = 0; i < newLength; i++) {
-			const element = renderFn(newListData[i], i);
-			listElements.set(i, element);
-			container.appendChild(element);
+		if (newLength === 0) {
+			// List became empty - replace with span placeholder
+			const spanPlaceholder = document.createElement("span");
+			spanPlaceholder.style.display = "none";
+			spanPlaceholder.setAttribute("data-ns-list", "0");
+
+			if (parent) {
+				// First, collect other list elements to remove (excluding currentPlaceholder)
+				const elementsToRemove: HTMLElement[] = [];
+
+				// Remove all elements that are in the listElements map (except currentPlaceholder)
+				for (let i = 1; i < currentLength; i++) {
+					const listElement = listElements.get(i);
+					if (listElement && listElement.parentNode === parent) {
+						elementsToRemove.push(listElement);
+					}
+				}
+
+				// Remove other list elements first
+				for (const elem of elementsToRemove) {
+					if (elem.parentNode === parent) {
+						parent.removeChild(elem);
+					}
+				}
+
+				// Then replace currentPlaceholder with span placeholder
+				// Check if currentPlaceholder is still in DOM before replacing
+				if (currentPlaceholder.parentNode === parent) {
+					parent.replaceChild(spanPlaceholder, currentPlaceholder);
+				} else {
+					// If currentPlaceholder was already removed, just append the span
+					parent.appendChild(spanPlaceholder);
+				}
+			}
+
+			listElements.clear();
+			reactiveInfo.listPlaceholder = spanPlaceholder;
+			reactiveInfo.element = spanPlaceholder;
+		} else if (currentLength === 0) {
+			// List was empty, now has items - replace span with first element
+			const firstElement = renderFn(newListData[0], 0);
+			firstElement.setAttribute("data-ns-list", "0");
+			listElements.set(0, firstElement);
+
+			if (parent) {
+				parent.replaceChild(firstElement, currentPlaceholder);
+				// Insert remaining elements after first element
+				let lastInserted = firstElement;
+				for (let i = 1; i < newLength; i++) {
+					const element = renderFn(newListData[i], i);
+					listElements.set(i, element);
+					parent.insertBefore(element, lastInserted.nextSibling);
+					lastInserted = element;
+				}
+			} else {
+				// Not in DOM yet, just store references
+				for (let i = 1; i < newLength; i++) {
+					const element = renderFn(newListData[i], i);
+					listElements.set(i, element);
+				}
+			}
+
+			reactiveInfo.listPlaceholder = firstElement;
+			reactiveInfo.element = firstElement;
+		} else {
+			// List length changed (non-zero to non-zero) - re-render all items
+			// Remove only existing list elements (those in listElements map)
+			if (parent) {
+				const elementsToRemove: HTMLElement[] = [];
+
+				// Collect all list elements that need to be removed
+				for (let i = 0; i < currentLength; i++) {
+					const listElement = listElements.get(i);
+					if (listElement && listElement.parentNode === parent) {
+						elementsToRemove.push(listElement);
+					}
+				}
+
+				// Remove all collected elements
+				for (const elem of elementsToRemove) {
+					if (elem.parentNode === parent) {
+						parent.removeChild(elem);
+					}
+				}
+			}
+
+			listElements.clear();
+
+			// Re-render all items
+			const firstElement = renderFn(newListData[0], 0);
+			firstElement.setAttribute("data-ns-list", "0");
+			listElements.set(0, firstElement);
+
+			if (parent) {
+				parent.appendChild(firstElement);
+			}
+
+			// Insert remaining elements in order
+			let lastInserted = firstElement;
+			for (let i = 1; i < newLength; i++) {
+				const element = renderFn(newListData[i], i);
+				listElements.set(i, element);
+				if (parent) {
+					parent.insertBefore(element, lastInserted.nextSibling);
+					lastInserted = element;
+				}
+			}
+
+			reactiveInfo.listPlaceholder = firstElement;
+			reactiveInfo.element = firstElement;
 		}
 	}
 	// If lengths are equal, no changes needed - individual items will update via their own dependencies
+}
+
+// Element function - bind reactive properties and dependencies to an existing element
+function element(existingElement: HTMLElement): TagFunction {
+	return (
+		...args: Array<Dependencies | Attributes | Content | Content[]>
+	): HTMLElement => {
+		// Parse arguments (same as createTagFunction)
+		let deps: Dependencies | null = null;
+		let attrs: Attributes | null = null;
+		let content: Content | Content[] | null = null;
+
+		for (const arg of args) {
+			if (Array.isArray(arg) && arg.length > 0) {
+				// Check if it's a dependencies array (first element is an object/array)
+				const firstItem = arg[0];
+				if (
+					typeof firstItem === "object" &&
+					firstItem !== null &&
+					!(firstItem instanceof HTMLElement)
+				) {
+					deps = arg as Dependencies;
+					continue;
+				}
+			}
+			if (
+				typeof arg === "object" &&
+				arg !== null &&
+				!(arg instanceof HTMLElement) &&
+				!Array.isArray(arg)
+			) {
+				attrs = arg as Attributes;
+				continue;
+			}
+			if (content === null) {
+				content = arg as Content | Content[] | null;
+			} else if (Array.isArray(content)) {
+				content.push(arg as Content);
+			} else {
+				content = [content, arg as Content];
+			}
+		}
+
+		// Track this element's dependencies (same as createReactiveElement)
+		if (deps) {
+			for (const dep of deps) {
+				const depKey = dep as object;
+				const existing = reactiveElements.get(depKey);
+				if (existing) {
+					existing.add({
+						element: existingElement,
+						attrs: attrs || {},
+						content: content || null,
+						tagName: existingElement.tagName.toLowerCase(),
+					});
+				} else {
+					reactiveElements.set(
+						depKey,
+						new Set([
+							{
+								element: existingElement,
+								attrs: attrs || {},
+								content: content || null,
+								tagName: existingElement.tagName.toLowerCase(),
+							},
+						]),
+					);
+				}
+			}
+		}
+
+		// Apply attributes (including event handlers)
+		if (attrs) {
+			applyAttributes(existingElement, attrs);
+		}
+
+		// Apply content (replace existing content)
+		if (content !== null) {
+			// Clear existing content
+			existingElement.textContent = "";
+			const container = document.createDocumentFragment();
+			const contents = Array.isArray(content) ? content : [content];
+			for (const item of contents) {
+				const nodes = renderContent(item);
+				for (const node of nodes) {
+					container.appendChild(node);
+				}
+			}
+			existingElement.appendChild(container);
+		}
+
+		return existingElement;
+	};
 }
 
 // Whitelist of methods that should NOT be tag functions
@@ -737,6 +1072,7 @@ const WHITELIST = new Set([
 	"if",
 	"css",
 	"innerHTML",
+	"element",
 ]);
 
 // Proxy handler for dynamic tag access
@@ -751,7 +1087,8 @@ const handler: ProxyHandler<HObject> = {
 		| typeof css
 		| typeof innerHTML
 		| typeof ifConditional
-		| typeof list {
+		| typeof list
+		| typeof element {
 		if (WHITELIST.has(prop)) {
 			if (prop === "update") {
 				return update;
@@ -770,6 +1107,9 @@ const handler: ProxyHandler<HObject> = {
 			}
 			if (prop === "list") {
 				return list;
+			}
+			if (prop === "element") {
+				return element;
 			}
 			// For watch - return no-op functions for now
 			return (() => {}) as TagFunction;
@@ -793,6 +1133,8 @@ type HObject = {
 	css: typeof css;
 	innerHTML: typeof innerHTML;
 	if: typeof ifConditional;
+	list: typeof list;
+	element: typeof element;
 } & HTagElements & {
 		// Index signature for dynamic tags - always returns TagFunction via Proxy
 		[key: string]:
@@ -801,7 +1143,9 @@ type HObject = {
 			| typeof onUpdate
 			| typeof css
 			| typeof innerHTML
-			| typeof ifConditional;
+			| typeof ifConditional
+			| typeof list
+			| typeof element;
 	};
 
 // Create the h object with proxy
@@ -818,6 +1162,7 @@ type HExport = {
 	innerHTML: typeof innerHTML;
 	if: typeof ifConditional;
 	list: typeof list;
+	element: typeof element;
 } & HTagElements & {
 		// Index signature that explicitly returns TagFunction (not TagFunction | undefined)
 		// This overrides the default behavior from noUncheckedIndexedAccess
@@ -828,7 +1173,8 @@ type HExport = {
 			| typeof css
 			| typeof innerHTML
 			| typeof ifConditional
-			| typeof list;
+			| typeof list
+			| typeof element;
 	};
 
 const h = _h as unknown as HExport;
