@@ -1,115 +1,110 @@
-# zeroeffect Usage Guide for Claude
+# Testing Standards for Interactive Elements
 
-No Signal, no Proxy, no Virtual DOM.
+When creating interactive elements or components with event handlers (onclick, onchange, onkeydown, etc.), you MUST follow these guidelines:
 
-## Basic Usage
+## 1. Add data-testid Attribute
 
-```typescript
-import { h } from "zeroeffect";
-
-// State is just a plain object
-const state = { count: 0 };
-
-// Create element with reactive content
-const div = h.div(
-  [state], // First arg: dependencies array
-  () => `Count: ${state.count}` // Reactive content function
-);
-
-// Update state and trigger re-render
-state.count = 5;
-h.update(state); // Manual update required
-```
-
-## Key Rules
-
-1. **Dependencies**: First parameter as array `[state]` makes content reactive to that state
-2. **Manual Updates**: Call `h.update(state)` after modifying state to update DOM
-3. **Reactive Content**: Functions in content position execute on update
-4. **Reactive Attributes**: Functions as attribute values execute on update
-5. **Event Handlers**: Attributes starting with `on` (e.g., `onclick`) are event handlers, not reactive
-
-## Common Patterns
+All interactive elements must include a `data-testid` attribute to enable testing.
 
 ```typescript
-// Reactive content
-h.div([state], () => `Value: ${state.value}`);
+// ✓ Good - Has data-testid
+h.button({
+  'data-testid': 'todo-add-button',
+  onclick: () => {
+    // Add todo logic
+  }
+}, "Add Todo")
 
-// Reactive attributes
-h.div([state], {
-  class: () => (state.active ? "active" : "inactive"),
-  style: () => ({ color: state.color }),
-});
-
-// No update
-h.div([], {
-  class: () => (state.active ? "active" : "inactive"),
-  style: () => ({ color: state.color }),
-});
-
-// Event handler
-h.button(
-  {
-    onclick: () => {
-      state.count++;
-      h.update(state);
-    },
-  },
-  "Click"
-);
-
-// Conditional rendering
-h.if(
-  [state], // Dependencies array
-  () => state.show, // Condition function (returns truthy/falsy)
-  () => h.div("Visible"), // Render function when condition is true
-  () => h.div("Hidden") // Optional: render function when condition is false
-);
-// Without else: returns hidden span when condition is false
-
-// List rendering
-h.list(
-  items, // First parameter is the data list array
-  (item, index) => h.div([item], () => `Item: ${item}`) // Render function
-);
-// When items.length changes, list re-renders
-// Individual items update when their own dependencies change
-
-// Virtual list (for large datasets, 100k+ items)
-h.virtualList(
-  items, // First parameter is the data list array
-  { class: "h-full overflow-y-auto" }, // Container attributes - REQUIRED
-  (item, index) => h.div([item], () => `Item: ${item}`) // Render function
-);
-// Bind to existing element
-h.element(existingDiv)([state], () => state.text);
+// ✗ Bad - Missing data-testid
+h.button({
+  onclick: () => {
+    // Add todo logic
+  }
+}, "Add Todo")
 ```
 
-## Special Methods
+## 2. Descriptive testid Naming
 
-- `h.update(state)` - Manually trigger update for state
-- `h.onUpdate(callback)` - Register update callback
-- `h.css(styles)` - Inject CSS into head
-- `h.innerHTML(html)` - Render HTML string
-- `h.if(deps, condition, renderFn, elseRenderFn?)` - Conditional rendering
-  - `deps`: Dependencies array
-  - `condition`: Function returning truthy/falsy
-  - `renderFn`: Function returning element when condition is true
-  - `elseRenderFn`: Optional function returning element when condition is false (if omitted, returns hidden span)
-- `h.list(dataList, renderFn)` - List rendering
-  - **First parameter MUST be the data list array**
-  - `renderFn(value, index)`: Function that returns element for each item
-  - **Each item element can have its own dependencies** (e.g., `h.div([item], ...)` makes each item reactive to its own data)
-  - List re-renders when array length changes
-  - Individual items update when their own dependencies change
-- `h.virtualList(items, attrs, renderFn, options?)` - Virtual list for large datasets (100k+ items)
-  - Dynamic height mode: measures actual rendered heights and caches them for accurate scrolling
-- `h.element(element)` - Bind reactive properties to existing element
+The `data-testid` value should be descriptive and follow this pattern:
 
-## Important Notes
+- Use kebab-case (lowercase with hyphens)
+- Include the component/action context
+- Be specific about the element's function
 
-- Multiple `h.update()` calls in same frame are batched
-- Falsy values (`false`, `null`, `undefined`, `NaN`, `''`) don't render
-- Custom tags: `h["custom-tag"]()` works, but reserved methods don't: `update`, `onUpdate`, `list`, `if`, `css`, `innerHTML`, `element`, `virtualList`
-- **TypeScript**: For custom tags, use type assertion: `h["iconify-icon" as "div"]({ ... })` to avoid type errors
-- Elements must be in DOM for updates to work
+```typescript
+// ✓ Good examples
+h.button({ 'data-testid': 'todo-item-delete-btn' }, "Delete")
+h.input({ 'data-testid': 'todo-text-input' })
+h.input({ 'data-testid': 'todo-checkbox' })
+h.button({ 'data-testid': 'virtual-list-add-item' })
+
+// ✗ Bad examples
+h.button({ 'data-testid': 'btn1' }, "Click")
+h.input({ 'data-testid': 'input1' })
+h.div({ 'data-testid': 'item' })
+```
+
+## 3. Include Context in testid
+
+When multiple similar elements exist, include context in the testid:
+
+```typescript
+// ✓ Good - Context is clear
+h.button({ 'data-testid': 'todo-list-clear-all-btn' }, "Clear All")
+h.button({ 'data-testid': 'todo-item-edit-btn' }, "Edit")
+
+// ✗ Bad - No context
+h.button({ 'data-testid': 'clear-btn' }, "Clear All")
+h.button({ 'data-testid': 'edit-btn' }, "Edit")
+```
+
+## 4. Common Interactive Elements
+
+All these elements MUST have `data-testid`:
+
+- Buttons (onclick handlers)
+- Input fields (oninput, onkeydown, onchange handlers)
+- Checkboxes (onchange handlers)
+- Select dropdowns (onchange handlers)
+- Textareas (oninput, onkeydown handlers)
+- Any element with event handlers
+
+## 5. Example: Todo List
+
+```typescript
+const todoList = h.list(
+  todos,
+  (todo) =>
+    h.div(
+      {
+        'data-testid': 'todo-item',
+        onclick: () => handleClick(todo)
+      },
+      h.input({
+        'data-testid': 'todo-checkbox',
+        type: "checkbox",
+        checked: () => todo.completed,
+        onchange: () => toggleTodo(todo)
+      }),
+      h.span(
+        { 'data-testid': 'todo-text' },
+        () => todo.text
+      ),
+      h.button(
+        { 'data-testid': 'todo-delete-btn' },
+        "Delete"
+      )
+    )
+)
+```
+
+## Why This Matters
+
+1. **Testing**: Enables automated testing with tools like Playwright, Cypress, or Selenium
+2. **Accessibility**: Helps QA teams identify interactive elements
+3. **Maintenance**: Makes code easier to debug and maintain
+4. **Documentation**: Serves as inline documentation of element purposes
+
+## Lint Rule
+
+This will be enforced during code reviews. Elements with event handlers must have `data-testid` attributes.

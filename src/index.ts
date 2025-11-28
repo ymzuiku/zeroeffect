@@ -409,11 +409,11 @@ function processUpdate(state: unknown): void {
 
 		// Handle virtual list rendering
 		if (info.isVirtualList && info.virtualListUpdate) {
-			// 如果状态是数组，更新虚拟列表的数据引用
+			// Update virtual list data reference if state is an array
 			const currentState = virtualListInstances.get(info.element);
 			if (currentState) {
-				// 如果触发更新的状态是数组，使用它作为新数据
-				// 否则保持当前数据
+				// If the triggered state is an array, use it as new data
+				// Otherwise keep current data
 				if (Array.isArray(state)) {
 					currentState.listData = state as unknown[];
 				}
@@ -1153,15 +1153,15 @@ function element(existingElement: HTMLElement): TagFunction {
 
 // Virtual list types and function
 type VirtualListOptions = {
-	/** 每个项目的高度（固定高度）、获取高度的函数，或 "auto" 表示自动测量实际渲染高度 */
+	/** Item height (fixed number), function to get height, or "auto" for dynamic height measurement */
 	itemHeight: number | ((index: number) => number) | "auto";
-	/** 容器高度，默认使用父容器高度 */
+	/** Container height, defaults to parent height */
 	containerHeight?: number;
-	/** 预渲染的项目数量（在可见区域前后），默认 6 */
+	/** Number of items to render outside viewport (before and after), default 6 */
 	overscan?: number;
-	/** 滚动容器元素，如果不提供则使用返回的容器 */
+	/** Scroll container element, uses returned container if not provided */
 	scrollContainer?: HTMLElement;
-	/** 动态高度模式下，估算的初始高度（用于首次渲染），默认 150 */
+	/** Estimated initial height for dynamic height mode (for first render), default 150 */
 	estimatedItemHeight?: number;
 };
 
@@ -1179,8 +1179,8 @@ type VirtualListState = {
 	options: VirtualListOptions;
 	contentContainer: HTMLElement;
 	rafId: number | null;
-	itemHeights: Map<number, number>; // 缓存每个项目的实际高度（用于动态高度模式）
-	estimatedHeight: number; // 估算高度（用于未测量的项目）
+	itemHeights: Map<number, number>; // Cache actual height of each item (for dynamic height mode)
+	estimatedHeight: number; // Estimated height (for unmeasured items)
 };
 
 // Store virtual list instances for updates
@@ -1204,7 +1204,7 @@ function virtualList<T = unknown>(
 	renderFn: (value: T, index: number) => HTMLElement,
 	options?: VirtualListOptions,
 ): HTMLElement {
-	// 验证第一个参数必须是数组
+	// Validate first parameter must be an array
 	if (!Array.isArray(items)) {
 		throw new Error("h.virtualList: First parameter must be an array");
 	}
@@ -1216,9 +1216,9 @@ function virtualList<T = unknown>(
 		index: number,
 	) => HTMLElement;
 
-	// attrs 参数必须传递，用于设置容器 div 的属性
+	// attrs parameter must be passed, used to set container div attributes
 
-	// 配置选项（提供默认值）
+	// Configuration options (provide default values)
 	const {
 		itemHeight = "auto",
 		containerHeight: initialContainerHeight,
@@ -1227,13 +1227,13 @@ function virtualList<T = unknown>(
 		estimatedItemHeight = 150,
 	} = options || {};
 
-	// 判断是否为动态高度模式
+	// Determine if it's dynamic height mode
 	const isDynamicHeight = itemHeight === "auto";
 
-	// 计算项目高度的函数
+	// Function to calculate item height
 	const getItemHeight = (index: number, useCache = true): number => {
 		if (isDynamicHeight) {
-			// 动态高度模式：优先使用缓存，否则使用估算高度
+			// Dynamic height mode: prioritize cache, otherwise use estimated height
 			if (useCache && state.itemHeights.has(index)) {
 				const cachedHeight = state.itemHeights.get(index);
 				if (cachedHeight !== undefined) {
@@ -1248,10 +1248,10 @@ function virtualList<T = unknown>(
 		return itemHeight;
 	};
 
-	// 计算总高度
+	// Calculate total height
 	const calculateTotalHeight = (data: unknown[]): number => {
 		if (isDynamicHeight) {
-			// 动态高度模式：使用缓存的高度 + 估算高度
+			// Dynamic height mode: use cached height + estimated height
 			let total = 0;
 			for (let i = 0; i < data.length; i++) {
 				total += getItemHeight(i);
@@ -1268,7 +1268,7 @@ function virtualList<T = unknown>(
 		return data.length * itemHeight;
 	};
 
-	// 计算每个项目的偏移量
+	// Calculate offset for each item
 	const getItemOffset = (index: number, _data: unknown[]): number => {
 		if (isDynamicHeight || typeof itemHeight === "function") {
 			let offset = 0;
@@ -1280,17 +1280,17 @@ function virtualList<T = unknown>(
 		return index * itemHeight;
 	};
 
-	// 确保 options 不为空
+	// Ensure options is not null
 	const finalOptions = options || {
 		itemHeight: "auto",
 		overscan: 6,
 		estimatedItemHeight: 150,
 	};
 
-	// 状态
+	// State
 	const state: VirtualListState = {
 		scrollTop: 0,
-		// 初始高度为 0，等待检测父容器高度
+		// Initial height is 0, waiting for parent container height detection
 		containerHeight: initialContainerHeight || 0,
 		totalHeight: 0,
 		startIndex: 0,
@@ -1307,41 +1307,41 @@ function virtualList<T = unknown>(
 		estimatedHeight: estimatedItemHeight,
 	};
 
-	// 创建容器
+	// Create container
 	const container = document.createElement("div");
 	container.style.position = "relative";
 	container.style.overflow = "auto";
 
-	// 应用用户传递的 attrs
+	// Apply user-provided attrs
 	applyAttributes(container, attrs);
 
 	if (initialContainerHeight) {
 		container.style.height = `${initialContainerHeight}px`;
 	}
 
-	// 创建内容容器
+	// Create content container
 	const contentContainer = document.createElement("div");
 	contentContainer.style.position = "relative";
 	container.appendChild(contentContainer);
 
-	// 计算最大高度限制（屏幕高度的 2 倍）
+	// Calculate max height limit (2x screen height)
 	const maxHeight = typeof window !== "undefined" ? window.innerHeight * 2 : 0;
 
-	// 节流器：滚动时检测高度
+	// Throttler: detect height during scroll
 	let resizeThrottleId: number | null = null;
 	const throttledHeightCheck = () => {
 		if (resizeThrottleId === null) {
 			resizeThrottleId = requestAnimationFrame(() => {
 				resizeThrottleId = null;
-				// 检测容器高度变化
+				// Detect container height changes
 				const currentHeight = container.offsetHeight;
 				if (currentHeight > 0) {
-					// 限制高度不超过屏幕的 2 倍
+					// Limit height to no more than 2x screen height
 					const newHeight = Math.min(currentHeight, maxHeight);
 					if (newHeight !== state.containerHeight) {
 						state.containerHeight = newHeight;
 						container.style.height = `${newHeight}px`;
-						// 重新渲染可见项目
+						// Re-render visible items
 						renderVisibleItems(state.listData);
 					}
 				}
@@ -1349,31 +1349,31 @@ function virtualList<T = unknown>(
 		}
 	};
 
-	// 高度检测函数：等待容器准备好
+	// Height detection function: wait for container to be ready
 	const checkContainerHeight = (): void => {
-		// 首先尝试读取容器自身的offsetHeight
+		// First try to read the container's own offsetHeight
 		const containerOffsetHeight = container.offsetHeight;
 
 		if (initialContainerHeight) {
-			// 如果设置了初始高度，直接使用
+			// If initial height is set, use it directly
 			state.containerHeight = initialContainerHeight;
 			container.style.height = `${initialContainerHeight}px`;
 		} else if (containerOffsetHeight > 0) {
-			// 如果容器有明确的高度，使用它
+			// If container has a clear height, use it
 			const newHeight = Math.min(containerOffsetHeight, maxHeight);
 			if (newHeight !== state.containerHeight) {
 				state.containerHeight = newHeight;
 				container.style.height = `${newHeight}px`;
 			}
 		} else {
-			// 容器没有高度，尝试读取父容器高度
+			// Container has no height, try reading parent container height
 			const parentHeight = container.parentElement?.clientHeight || 0;
 			if (parentHeight === 0) {
-				// 父容器还没有高度，继续等待下一帧
+				// Parent container doesn't have height yet, continue waiting for next frame
 				requestAnimationFrame(checkContainerHeight);
 				return;
 			}
-			// 限制高度不超过屏幕的 2 倍
+			// Limit height to no more than 2x screen height
 			const newHeight = Math.min(parentHeight, maxHeight);
 			if (newHeight !== state.containerHeight) {
 				state.containerHeight = newHeight;
@@ -1381,14 +1381,14 @@ function virtualList<T = unknown>(
 			}
 		}
 
-		// 初始渲染
+		// Initial render
 		renderVisibleItems(state.listData);
 	};
 
-	// 将内容容器设置到状态中
+	// Set content container to state
 	state.contentContainer = contentContainer;
 
-	// 计算可见范围
+	// Calculate visible range
 	const calculateVisibleRange = (
 		data: unknown[],
 	): { start: number; end: number } => {
@@ -1404,9 +1404,9 @@ function virtualList<T = unknown>(
 		let start = 0;
 		let end = data.length - 1;
 
-		// 二分查找起始索引
+		// Binary search for start index
 		if (isDynamicHeight || typeof itemHeight === "function") {
-			// 可变高度：使用二分查找
+			// Variable height: use binary search
 			let low = 0;
 			let high = data.length - 1;
 			while (low <= high) {
@@ -1421,7 +1421,7 @@ function virtualList<T = unknown>(
 			}
 			start = low;
 
-			// 查找结束索引
+			// Find end index
 			low = start;
 			high = data.length - 1;
 			while (low <= high) {
@@ -1435,25 +1435,25 @@ function virtualList<T = unknown>(
 			}
 			end = high;
 		} else {
-			// 固定高度：直接计算
+			// Fixed height: direct calculation
 			start = Math.floor(viewportTop / itemHeight);
 			end = Math.min(Math.ceil(viewportBottom / itemHeight), data.length - 1);
 		}
 
-		// 应用 overscan
+		// Apply overscan
 		start = Math.max(0, start - overscan);
 		end = Math.min(data.length - 1, end + overscan);
 
 		return { start, end };
 	};
 
-	// 渲染可见项目
+	// Render visible items
 	const renderVisibleItems = (data: unknown[]): void => {
 		const { start, end } = calculateVisibleRange(data);
 		state.startIndex = start;
 		state.endIndex = end;
 
-		// 移除旧的可见项目
+		// Remove old visible items
 		for (const item of state.visibleItems) {
 			if (item.parentNode === contentContainer) {
 				contentContainer.removeChild(item);
@@ -1461,7 +1461,7 @@ function virtualList<T = unknown>(
 		}
 		state.visibleItems = [];
 
-		// 创建顶部占位符
+		// Create top spacer
 		if (start > 0) {
 			const topOffset = getItemOffset(start, data);
 			if (!state.spacerTop) {
@@ -1478,7 +1478,7 @@ function virtualList<T = unknown>(
 			state.spacerTop = null;
 		}
 
-		// 渲染可见项目
+		// Render visible items
 		for (let i = start; i <= end; i++) {
 			const item = renderFnInternal(data[i], i);
 			item.style.position = "absolute";
@@ -1489,9 +1489,9 @@ function virtualList<T = unknown>(
 			state.visibleItems.push(item);
 		}
 
-		// 动态高度模式：测量并缓存实际高度
+		// Dynamic height mode: measure and cache actual height
 		if (isDynamicHeight && state.visibleItems.length > 0) {
-			// 使用 requestAnimationFrame 确保 DOM 已渲染
+			// Use requestAnimationFrame to ensure DOM is rendered
 			requestAnimationFrame(() => {
 				let needsUpdate = false;
 				const currentStart = state.startIndex;
@@ -1505,14 +1505,14 @@ function virtualList<T = unknown>(
 						const oldHeight =
 							state.itemHeights.get(actualIndex) || state.estimatedHeight;
 						if (Math.abs(measuredHeight - oldHeight) > 1) {
-							// 高度发生变化，更新缓存
+							// Height changed, update cache
 							state.itemHeights.set(actualIndex, measuredHeight);
 							needsUpdate = true;
 						}
 					}
 				}
 
-				// 更新估算高度（使用已测量项目的平均高度）
+				// Update estimated height (using average of measured items)
 				if (needsUpdate && state.itemHeights.size > 0) {
 					let sum = 0;
 					let count = 0;
@@ -1522,11 +1522,11 @@ function virtualList<T = unknown>(
 					}
 					state.estimatedHeight = Math.round(sum / count);
 
-					// 重新计算总高度并更新布局
+					// Recalculate total height and update layout
 					state.totalHeight = calculateTotalHeight(data);
 					contentContainer.style.height = `${state.totalHeight}px`;
 
-					// 更新所有可见项目的位置
+					// Update positions of all visible items
 					for (let idx = 0; idx < state.visibleItems.length; idx++) {
 						const item = state.visibleItems[idx];
 						if (!item) continue;
@@ -1534,7 +1534,7 @@ function virtualList<T = unknown>(
 						item.style.top = `${getItemOffset(actualIndex, data)}px`;
 					}
 
-					// 更新占位符
+					// Update spacers
 					if (currentStart > 0 && state.spacerTop) {
 						state.spacerTop.style.height = `${getItemOffset(currentStart, data)}px`;
 					}
@@ -1548,7 +1548,7 @@ function virtualList<T = unknown>(
 			});
 		}
 
-		// 创建底部占位符
+		// Create bottom spacer
 		const bottomOffset =
 			getItemOffset(data.length, data) - getItemOffset(end + 1, data);
 		if (bottomOffset > 0) {
@@ -1567,17 +1567,17 @@ function virtualList<T = unknown>(
 			state.spacerBottom = null;
 		}
 
-		// 更新内容容器总高度
+		// Update total height of content container
 		state.totalHeight = calculateTotalHeight(data);
 		contentContainer.style.height = `${state.totalHeight}px`;
 	};
 
-	// 处理滚动
+	// Handle scroll
 	const handleScroll = (): void => {
 		const scrollContainer = externalScrollContainer || container;
 		state.scrollTop = scrollContainer.scrollTop;
 
-		// 滚动时检查高度变化
+		// Check height changes during scroll
 		throttledHeightCheck();
 
 		if (state.rafId === null) {
@@ -1588,10 +1588,10 @@ function virtualList<T = unknown>(
 		}
 	};
 
-	// 更新函数（当数据变化时调用）
+	// Update function (called when data changes)
 	const updateVirtualList = (newData: unknown[]): void => {
 		state.listData = newData;
-		// 动态高度模式：清除不再存在的高度缓存
+		// Dynamic height mode: clear no-longer-existing height cache
 		if (isDynamicHeight) {
 			const newLength = newData.length;
 			for (const index of state.itemHeights.keys()) {
@@ -1605,27 +1605,27 @@ function virtualList<T = unknown>(
 		renderVisibleItems(newData);
 	};
 
-	// 初始化
+	// Initialize
 	const init = (): void => {
-		// 设置总高度
+		// Set total height
 		state.totalHeight = calculateTotalHeight(listData as unknown[]);
 		contentContainer.style.height = `${state.totalHeight}px`;
 
-		// 添加滚动监听
+		// Add scroll listener
 		const scrollContainer = externalScrollContainer || container;
 		scrollContainer.addEventListener("scroll", handleScroll, { passive: true });
 
-		// 开始检测容器高度（等待父容器准备好）
+		// Start detecting container height (wait for parent to be ready)
 		checkContainerHeight();
 	};
 
-	// 初始化
+	// Initialize
 	init();
 
-	// 存储状态以便更新
+	// Store state for updates
 	virtualListInstances.set(container, state);
 
-	// 注册到响应式系统，当数据数组变化时更新
+	// Register to reactive system, update when data array changes
 	for (const dep of [listData, ...otherDeps]) {
 		const depKey = dep as object;
 		const existing = reactiveElements.get(depKey);

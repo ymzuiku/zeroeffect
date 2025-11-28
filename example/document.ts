@@ -1047,6 +1047,15 @@ h.element(existingDiv)([state], () => state.text);
 			"CLAUDE.md",
 		),
 		h.button(
+			{
+				class: "doc-claude-button",
+				onclick: () => {
+					window.open("https://github.com/ymzuiku/zeroeffect", "_blank");
+				},
+			},
+			"GitHub",
+		),
+		h.button(
 			[langState],
 			{
 				class: "doc-lang-button",
