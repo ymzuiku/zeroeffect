@@ -40,7 +40,7 @@ const translations = {
 		virtualList: {
 			title: "虚拟列表",
 			content:
-				"使用 h.virtualList() 渲染大量数据（10万+）。第一个参数是依赖数组，第一个元素必须是列表数据数组。第二个参数是渲染函数，接收 value 和 index。第三个参数是配置选项：itemHeight（固定高度或函数）、containerHeight（可选，默认使用父容器高度）、overscan（可选，预渲染项目数，默认5）。只渲染可见区域的项目，性能优异。数据变化时调用 h.update(items) 自动更新。",
+				'使用 h.virtualList() 渲染大量数据（10万+）。第一个参数是依赖数组，第一个元素必须是列表数据数组。第二个参数是渲染函数，接收 value 和 index。第三个参数是配置选项：itemHeight（固定高度、函数 (index) => number，或 "auto" 表示自动测量实际高度）、containerHeight（可选，默认使用父容器高度）、overscan（可选，预渲染项目数，默认5）、estimatedItemHeight（可选，动态高度模式的初始估算高度，默认50）。只渲染可见区域的项目，性能优异。数据变化时调用 h.update(items) 自动更新。动态高度模式会自动测量并缓存每个项目的实际高度。',
 		},
 		element: {
 			title: "绑定已有元素",
@@ -101,7 +101,7 @@ const translations = {
 		virtualList: {
 			title: "Virtual List",
 			content:
-				"Use h.virtualList() to render large datasets (100k+ items). First parameter is dependency array where first element MUST be the array to render. Second parameter is render function (value, index). Third parameter is options: itemHeight (fixed number or function), containerHeight (optional, defaults to parent), overscan (optional, default 5). Only renders visible items for performance. Automatically updates when data changes via h.update(items).",
+				'Use h.virtualList() to render large datasets (100k+ items). First parameter is dependency array where first element MUST be the array to render. Second parameter is render function (value, index). Third parameter is options: itemHeight (fixed number, function (index) => number, or "auto" for dynamic height measurement), containerHeight (optional, defaults to parent), overscan (optional, default 5), estimatedItemHeight (optional, initial estimate for dynamic height mode, default 50). Only renders visible items for performance. Automatically updates when data changes via h.update(items). Dynamic height mode automatically measures and caches actual rendered heights.',
 		},
 		element: {
 			title: "Binding Existing Elements",
@@ -159,6 +159,7 @@ const exampleStates = {
 			id: i,
 			name: `Item ${i}`,
 			value: Math.floor(Math.random() * 1000),
+			lines: Math.floor(Math.random() * 5) + 1, // 1-5 行随机内容
 		})),
 	},
 	element: { count: 0 },
@@ -918,13 +919,15 @@ h.virtualList(
   [items], // First dep MUST be the array to render
   (item, index) => h.div([item], () => \`Item: \${item}\`),
   {
-    itemHeight: 50, // Fixed height or function: (index) => number
+    itemHeight:'auto',
     containerHeight: 600, // Optional, defaults to parent height
-    overscan: 5 // Optional, items to render outside viewport (default: 5)
+    overscan: 5, // Optional, items to render outside viewport (default: 5)
+    estimatedItemHeight: 50 // Optional, initial estimate for dynamic height mode (default: 50)
   }
 );
 // Only renders visible items for performance
 // Automatically updates when data changes via h.update(items)
+// Dynamic height mode: set itemHeight to "auto" to measure actual rendered heights
 
 // Bind to existing element
 h.element(existingDiv)([state], () => state.text);
@@ -953,11 +956,13 @@ h.element(existingDiv)([state], () => state.text);
 - \`h.virtualList(deps, renderFn, options)\` - Virtual list for large datasets (100k+ items)
   - **First dependency MUST be the array to render**
   - \`renderFn(value, index)\`: Function that returns element for each item
-  - \`options.itemHeight\`: Fixed height (number) or function \`(index) => number\`
+  - \`options.itemHeight\`: Fixed height (number), function \`(index) => number\`, or \`"auto"\` for dynamic height
   - \`options.containerHeight\`: Optional container height (defaults to parent)
   - \`options.overscan\`: Optional items to render outside viewport (default: 5)
+  - \`options.estimatedItemHeight\`: Optional initial estimate for dynamic height mode (default: 50)
   - Only renders visible items for performance
   - Automatically updates when data changes via \`h.update(items)\`
+  - Dynamic height mode: measures actual rendered heights and caches them for accurate scrolling
 - \`h.element(element)\` - Bind reactive properties to existing element
 
 ## Important Notes
@@ -1386,7 +1391,8 @@ document.body.append(app);`,
 const items = Array.from({ length: 100000 }, (_, i) => ({
 	id: i,
 	name: \`Item \${i}\`,
-	value: Math.floor(Math.random() * 1000)
+	value: Math.floor(Math.random() * 1000),
+	lines: Math.floor(Math.random() * 5) + 1 // 1-5 lines of random content
 }));
 
 // Virtual list for large datasets (100k+ items)
@@ -1403,7 +1409,8 @@ const app = h.div(
 					items.push({
 						id: newId,
 						name: \`Item \${newId}\`,
-						value: Math.floor(Math.random() * 1000)
+						value: Math.floor(Math.random() * 1000),
+						lines: Math.floor(Math.random() * 5) + 1
 					});
 					h.update(items);
 				}
@@ -1440,7 +1447,7 @@ const app = h.div(
 					})
 				},
 				h.div(
-					{ class: "flex-between" },
+					{ class: "flex-between mb-2" },
 					h.div(
 						{ class: "flex-1" },
 						h.span({ class: "font-semibold text-gray-dark" }, \`#\${item.id}\`),
@@ -1468,12 +1475,20 @@ const app = h.div(
 							"Delete"
 						)
 					)
+				),
+				// 根据 lines 属性显示不同数量的内容行
+				...Array.from({ length: item.lines }, (_, i) =>
+					h.p(
+						{ class: "text-sm text-gray mb-1" },
+						\`Line \${i + 1} of \${item.lines}: This is dynamic content that makes each item have different heights.\`
+					)
 				)
 			),
 		{
-			itemHeight: 60, // Fixed height for each item
+			itemHeight: "auto", // Dynamic height - automatically measures actual rendered height
 			containerHeight: 400, // Container height
-			overscan: 5 // Render 5 extra items above and below viewport
+			overscan: 5, // Render 5 extra items above and below viewport
+			estimatedItemHeight: 80 // Initial estimate for dynamic height mode
 		}
 	)
 );
@@ -1485,6 +1500,7 @@ document.body.append(app);`,
 						id: number;
 						name: string;
 						value: number;
+						lines: number;
 					}>;
 				};
 				return h.div(
@@ -1504,6 +1520,7 @@ document.body.append(app);`,
 										id: newId,
 										name: `Item ${newId}`,
 										value: Math.floor(Math.random() * 1000),
+										lines: Math.floor(Math.random() * 5) + 1,
 									});
 									h.update(virtualListState.items);
 								},
@@ -1536,14 +1553,13 @@ document.body.append(app);`,
 							return h.div(
 								[item],
 								{
-									class:
-										"doc-p-3 doc-border-b doc-border-gray-200 doc-hover-bg-gray-50",
+									class: "list-item",
 									style: () => ({
 										backgroundColor: index % 2 === 0 ? "#f9fafb" : "#ffffff",
 									}),
 								},
 								h.div(
-									{ class: "flex-between" },
+									{ class: "flex-between mb-2" },
 									h.div(
 										{ class: "flex-1" },
 										h.span(
@@ -1562,8 +1578,7 @@ document.body.append(app);`,
 										),
 										h.button(
 											{
-												class:
-													"px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-sm",
+												class: "red-button-sm",
 												onclick: () => {
 													const itemIndex = virtualListState.items.findIndex(
 														(i) => i.id === item.id,
@@ -1578,12 +1593,20 @@ document.body.append(app);`,
 										),
 									),
 								),
+								// 根据 lines 属性显示不同数量的内容行
+								...Array.from({ length: item.lines }, (_, i) =>
+									h.p(
+										{ class: "text-sm text-gray mb-1" },
+										`Line ${i + 1} of ${item.lines}: This is dynamic content that makes each item have different heights.`,
+									),
+								),
 							);
 						},
 						{
-							itemHeight: 60,
+							itemHeight: "auto",
 							containerHeight: 400,
 							overscan: 5,
+							estimatedItemHeight: 80,
 						},
 					),
 				);

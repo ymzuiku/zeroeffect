@@ -1153,14 +1153,16 @@ function element(existingElement: HTMLElement): TagFunction {
 
 // Virtual list types and function
 type VirtualListOptions = {
-	/** 每个项目的高度（固定高度）或获取高度的函数 */
-	itemHeight: number | ((index: number) => number);
+	/** 每个项目的高度（固定高度）、获取高度的函数，或 "auto" 表示自动测量实际渲染高度 */
+	itemHeight: number | ((index: number) => number) | "auto";
 	/** 容器高度，默认使用父容器高度 */
 	containerHeight?: number;
 	/** 预渲染的项目数量（在可见区域前后），默认 5 */
 	overscan?: number;
 	/** 滚动容器元素，如果不提供则使用返回的容器 */
 	scrollContainer?: HTMLElement;
+	/** 动态高度模式下，估算的初始高度（用于首次渲染），默认 50 */
+	estimatedItemHeight?: number;
 };
 
 type VirtualListState = {
@@ -1177,6 +1179,8 @@ type VirtualListState = {
 	options: VirtualListOptions;
 	contentContainer: HTMLElement;
 	rafId: number | null;
+	itemHeights: Map<number, number>; // 缓存每个项目的实际高度（用于动态高度模式）
+	estimatedHeight: number; // 估算高度（用于未测量的项目）
 };
 
 // Store virtual list instances for updates
@@ -1215,10 +1219,24 @@ function virtualList<T = unknown>(
 		containerHeight: initialContainerHeight,
 		overscan = 5,
 		scrollContainer: externalScrollContainer,
+		estimatedItemHeight = 50,
 	} = options;
 
+	// 判断是否为动态高度模式
+	const isDynamicHeight = itemHeight === "auto";
+
 	// 计算项目高度的函数
-	const getItemHeight = (index: number): number => {
+	const getItemHeight = (index: number, useCache = true): number => {
+		if (isDynamicHeight) {
+			// 动态高度模式：优先使用缓存，否则使用估算高度
+			if (useCache && state.itemHeights.has(index)) {
+				const cachedHeight = state.itemHeights.get(index);
+				if (cachedHeight !== undefined) {
+					return cachedHeight;
+				}
+			}
+			return state.estimatedHeight;
+		}
 		if (typeof itemHeight === "function") {
 			return itemHeight(index);
 		}
@@ -1227,6 +1245,14 @@ function virtualList<T = unknown>(
 
 	// 计算总高度
 	const calculateTotalHeight = (data: unknown[]): number => {
+		if (isDynamicHeight) {
+			// 动态高度模式：使用缓存的高度 + 估算高度
+			let total = 0;
+			for (let i = 0; i < data.length; i++) {
+				total += getItemHeight(i);
+			}
+			return total;
+		}
 		if (typeof itemHeight === "function") {
 			let total = 0;
 			for (let i = 0; i < data.length; i++) {
@@ -1239,7 +1265,7 @@ function virtualList<T = unknown>(
 
 	// 计算每个项目的偏移量
 	const getItemOffset = (index: number, _data: unknown[]): number => {
-		if (typeof itemHeight === "function") {
+		if (isDynamicHeight || typeof itemHeight === "function") {
 			let offset = 0;
 			for (let i = 0; i < index; i++) {
 				offset += getItemHeight(i);
@@ -1277,6 +1303,8 @@ function virtualList<T = unknown>(
 		options,
 		contentContainer,
 		rafId: null,
+		itemHeights: new Map<number, number>(),
+		estimatedHeight: estimatedItemHeight,
 	};
 
 	// 更新容器高度
@@ -1306,7 +1334,7 @@ function virtualList<T = unknown>(
 		let end = data.length - 1;
 
 		// 二分查找起始索引
-		if (typeof itemHeight === "function") {
+		if (isDynamicHeight || typeof itemHeight === "function") {
 			// 可变高度：使用二分查找
 			let low = 0;
 			let high = data.length - 1;
@@ -1390,6 +1418,65 @@ function virtualList<T = unknown>(
 			state.visibleItems.push(item);
 		}
 
+		// 动态高度模式：测量并缓存实际高度
+		if (isDynamicHeight && state.visibleItems.length > 0) {
+			// 使用 requestAnimationFrame 确保 DOM 已渲染
+			requestAnimationFrame(() => {
+				let needsUpdate = false;
+				const currentStart = state.startIndex;
+				for (let idx = 0; idx < state.visibleItems.length; idx++) {
+					const item = state.visibleItems[idx];
+					if (!item) continue;
+					const actualIndex = currentStart + idx;
+					const measuredHeight =
+						item.offsetHeight || item.getBoundingClientRect().height;
+					if (measuredHeight > 0) {
+						const oldHeight =
+							state.itemHeights.get(actualIndex) || state.estimatedHeight;
+						if (Math.abs(measuredHeight - oldHeight) > 1) {
+							// 高度发生变化，更新缓存
+							state.itemHeights.set(actualIndex, measuredHeight);
+							needsUpdate = true;
+						}
+					}
+				}
+
+				// 更新估算高度（使用已测量项目的平均高度）
+				if (needsUpdate && state.itemHeights.size > 0) {
+					let sum = 0;
+					let count = 0;
+					for (const height of state.itemHeights.values()) {
+						sum += height;
+						count++;
+					}
+					state.estimatedHeight = Math.round(sum / count);
+
+					// 重新计算总高度并更新布局
+					state.totalHeight = calculateTotalHeight(data);
+					contentContainer.style.height = `${state.totalHeight}px`;
+
+					// 更新所有可见项目的位置
+					for (let idx = 0; idx < state.visibleItems.length; idx++) {
+						const item = state.visibleItems[idx];
+						if (!item) continue;
+						const actualIndex = currentStart + idx;
+						item.style.top = `${getItemOffset(actualIndex, data)}px`;
+					}
+
+					// 更新占位符
+					if (currentStart > 0 && state.spacerTop) {
+						state.spacerTop.style.height = `${getItemOffset(currentStart, data)}px`;
+					}
+					const bottomOffset =
+						getItemOffset(data.length, data) - getItemOffset(end + 1, data);
+					if (bottomOffset > 0 && state.spacerBottom) {
+						state.spacerBottom.style.height = `${bottomOffset}px`;
+						state.spacerBottom.style.top = `${getItemOffset(end + 1, data)}px`;
+					}
+				}
+			});
+		}
+
 		// 创建底部占位符
 		const bottomOffset =
 			getItemOffset(data.length, data) - getItemOffset(end + 1, data);
@@ -1430,6 +1517,15 @@ function virtualList<T = unknown>(
 	// 更新函数（当数据变化时调用）
 	const updateVirtualList = (newData: unknown[]): void => {
 		state.listData = newData;
+		// 动态高度模式：清除不再存在的高度缓存
+		if (isDynamicHeight) {
+			const newLength = newData.length;
+			for (const index of state.itemHeights.keys()) {
+				if (index >= newLength) {
+					state.itemHeights.delete(index);
+				}
+			}
+		}
 		state.totalHeight = calculateTotalHeight(newData);
 		contentContainer.style.height = `${state.totalHeight}px`;
 		renderVisibleItems(newData);

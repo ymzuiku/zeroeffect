@@ -78,13 +78,15 @@ h.virtualList(
   [items], // First dep MUST be the array to render
   (item, index) => h.div([item], () => `Item: ${item}`),
   {
-    itemHeight: 50, // Fixed height or function: (index) => number
+    itemHeight: 50, // Fixed height, function: (index) => number, or "auto" for dynamic height
     containerHeight: 600, // Optional, defaults to parent height
     overscan: 5, // Optional, items to render outside viewport (default: 5)
+    estimatedItemHeight: 50, // Optional, initial estimate for dynamic height mode (default: 50)
   }
 );
 // Only renders visible items for performance
 // Automatically updates when data changes via h.update(items)
+// Dynamic height mode: set itemHeight to "auto" to measure actual rendered heights
 
 // Bind to existing element
 h.element(existingDiv)([state], () => state.text);
@@ -111,11 +113,13 @@ h.element(existingDiv)([state], () => state.text);
 - `h.virtualList(deps, renderFn, options)` - Virtual list for large datasets (100k+ items)
   - **First dependency MUST be the array to render**
   - `renderFn(value, index)`: Function that returns element for each item
-  - `options.itemHeight`: Fixed height (number) or function `(index) => number`
+  - `options.itemHeight`: Fixed height (number), function `(index) => number`, or `"auto"` for dynamic height
   - `options.containerHeight`: Optional container height (defaults to parent)
   - `options.overscan`: Optional items to render outside viewport (default: 5)
+  - `options.estimatedItemHeight`: Optional initial estimate for dynamic height mode (default: 50)
   - Only renders visible items for performance
   - Automatically updates when data changes via `h.update(items)`
+  - Dynamic height mode: measures actual rendered heights and caches them for accurate scrolling
 - `h.element(element)` - Bind reactive properties to existing element
 
 ## Important Notes
