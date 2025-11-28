@@ -1,10 +1,10 @@
 {
-  "name": "doaddon-ts",
+  "name": "no-no-no",
   "module": "index.ts",
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "bun example/index.html",
+    "dev": "bun example/document.html",
     "build-logo": "bun scripts/build-logo.ts project-chrome-tabs/public/logo.png",
     "bundle": "bun build --compile --minify --bytecode project-chrome-tabs/server/index.ts project-chrome-tabs/server/worker.ts project-chrome-tabs/public/* --outfile dist/chrome_tabs",
     "pre-init": "bunx simple-git-hooks",

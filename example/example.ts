@@ -60,6 +60,7 @@ export const ExamplePage = () => {
 	return h.div(
 		// 第一个参数如果时数组，就会作为依赖，当数组中的对象发生变化时，会触发函数进行响应， 依赖可以有多个
 		// 当执行 h.update包含 state 时，会触发函数进行响应， 因为描述了 [state]
+		// h.div 就是一个普通的 HTMLDivElement 元素，会自动绑定响应式属性和依赖
 		h.div(
 			[state],
 			{ class: "text-2xl font-bold" },
@@ -124,16 +125,16 @@ export const ExamplePage = () => {
 			() => `Count: ${state.count} -- ${new Date().toISOString()}`,
 		),
 		// 支持 if 条件渲染, 如果条件为 true，则渲染内容，否则不渲染
-		// h.if(
-		// 	// 第一个参数必须是一个数组，表示依赖，要做类型约束
-		// 	[state],
-		// 	// 第二个参数必须是一个函数，表示条件，要做类型约束，返回不需要是 boolean，只要值为真就行
-		// 	() => state.count % 2 === 0,
-		// 	// 第三个参数必须是一个函数，真时，表示渲染内容
-		// 	() => h.div([state], "I am even"),
-		// 	// 如果有第4个参数，则会在条件为 false 时渲染
-		// 	() => h.div([state], "I am odd"),
-		// ),
+		h.if(
+			// 第一个参数必须是一个数组，表示依赖，要做类型约束
+			[state],
+			// 第二个参数必须是一个函数，表示条件，要做类型约束，返回不需要是 boolean，只要值为真就行
+			() => state.count % 2 === 0,
+			// 第三个参数必须是一个函数，真时，表示渲染内容
+			() => h.div([state], "I am even"),
+			// 如果有第4个参数，则会在条件为 false 时渲染
+			() => h.div([state], "I am odd"),
+		),
 		h.if(
 			[state],
 			() => state.count % 2 === 0,
