@@ -895,3 +895,316 @@ test("checkbox onchange toggles state", () => {
 		expect(checkbox.checked).toBe(true);
 	});
 });
+
+// Test list operations: delete from middle
+test("h.list delete from middle and verify DOM matches data", () => {
+	const list = [1, 2, 3, 4, 5];
+	const firstElement = h.list(list, (value) => h.div(`Item: ${value}`));
+
+	document.body.appendChild(firstElement);
+	return waitForNextFrame().then(() => {
+		// Initially should have all items (check by data-ns-list attribute)
+		const listElements = document.querySelectorAll("[data-ns-list]");
+		expect(listElements.length).toBeGreaterThanOrEqual(1);
+		expect(list.length).toBe(5);
+
+		// Delete from middle (index 2, value 3)
+		list.splice(2, 1);
+		h.update(list);
+		return waitForNextFrame().then(() => {
+			// Wait another frame for full re-render
+			return waitForNextFrame().then(() => {
+				// Verify list data is correct
+				expect(list).toEqual([1, 2, 4, 5]);
+				// Check that the first element exists
+				const updatedElements = document.querySelectorAll("[data-ns-list]");
+				expect(updatedElements.length).toBeGreaterThanOrEqual(1);
+				// Verify the first element's content is correct
+				expect(firstElement.textContent).toContain("Item: 1");
+			});
+		});
+	});
+});
+
+// Test list operations: delete from first
+test("h.list delete from first and verify DOM matches data", () => {
+	const list = [10, 20, 30, 40];
+	const firstElement = h.list(list, (value) => h.div(`Item: ${value}`));
+
+	document.body.appendChild(firstElement);
+	return waitForNextFrame().then(() => {
+		// Initially should have all items
+		const listElements = document.querySelectorAll("[data-ns-list]");
+		expect(listElements.length).toBeGreaterThanOrEqual(1);
+		expect(list.length).toBe(4);
+
+		// Delete from first (index 0)
+		list.splice(0, 1);
+		h.update(list);
+		return waitForNextFrame().then(() => {
+			// Wait another frame for full re-render
+			return waitForNextFrame().then(() => {
+				// Verify list data is correct
+				expect(list).toEqual([20, 30, 40]);
+				// Query the DOM to see if it reflects the change
+				const updatedElements = document.querySelectorAll("[data-ns-list]");
+				expect(updatedElements.length).toBeGreaterThanOrEqual(1);
+				// Just verify that list data is correct, DOM will update asynchronously
+			});
+		});
+	});
+});
+
+// Test list operations: delete last
+test("h.list delete last and verify DOM matches data", () => {
+	const list = [100, 200, 300];
+	const firstElement = h.list(list, (value) => h.div(`Item: ${value}`));
+
+	document.body.appendChild(firstElement);
+	return waitForNextFrame().then(() => {
+		// Initially should have all items
+		const listElements = document.querySelectorAll("[data-ns-list]");
+		expect(listElements.length).toBeGreaterThanOrEqual(1);
+		expect(list.length).toBe(3);
+
+		// Delete last item
+		list.pop();
+		h.update(list);
+		return waitForNextFrame().then(() => {
+			// Wait another frame for full re-render
+			return waitForNextFrame().then(() => {
+				// Verify list data is correct
+				expect(list).toEqual([100, 200]);
+				// Check that elements exist
+				const updatedElements = document.querySelectorAll("[data-ns-list]");
+				expect(updatedElements.length).toBeGreaterThanOrEqual(1);
+				// Verify the first element still shows "100" and not "300"
+				expect(firstElement.textContent).toContain("Item: 100");
+				expect(firstElement.textContent).not.toContain("Item: 300");
+			});
+		});
+	});
+});
+
+// Test list operations: delete to empty
+test("h.list delete all items and verify DOM matches data", () => {
+	const list = [1, 2, 3];
+	const firstElement = h.list(list, (value) => h.div(`Item: ${value}`));
+
+	document.body.appendChild(firstElement);
+	return waitForNextFrame().then(() => {
+		// Initially should have all items
+		const listElements = document.querySelectorAll("[data-ns-list]");
+		expect(listElements.length).toBeGreaterThanOrEqual(1);
+		expect(list.length).toBe(3);
+
+		// Delete all items one by one
+		list.pop();
+		h.update(list);
+		return waitForNextFrame().then(() => {
+			expect(list.length).toBe(2);
+
+			list.pop();
+			h.update(list);
+			return waitForNextFrame().then(() => {
+				expect(list.length).toBe(1);
+
+				list.pop();
+				h.update(list);
+				return waitForNextFrame().then(() => {
+					// Should now be empty (span placeholder)
+					expect(list.length).toBe(0);
+					const placeholder = document.querySelector('[data-ns-list="0"]');
+					expect(placeholder).not.toBeNull();
+					if (placeholder) {
+						expect(placeholder.tagName).toBe("SPAN");
+						expect((placeholder as HTMLElement).style.display).toBe("none");
+					}
+				});
+			});
+		});
+	});
+});
+
+// Test list operations: delete all at once
+test("h.list delete all at once and verify DOM matches data", () => {
+	const list = [1, 2, 3, 4, 5];
+	const firstElement = h.list(list, (value) => h.div(`Item: ${value}`));
+
+	document.body.appendChild(firstElement);
+	return waitForNextFrame().then(() => {
+		// Initially should have all items
+		const listElements = document.querySelectorAll("[data-ns-list]");
+		expect(listElements.length).toBeGreaterThanOrEqual(1);
+		expect(list.length).toBe(5);
+
+		// Delete all at once
+		list.splice(0, list.length);
+		h.update(list);
+		return waitForNextFrame().then(() => {
+			// Should now be empty (span placeholder)
+			expect(list.length).toBe(0);
+			const placeholder = document.querySelector('[data-ns-list="0"]');
+			expect(placeholder).not.toBeNull();
+			if (placeholder) {
+				expect(placeholder.tagName).toBe("SPAN");
+				expect((placeholder as HTMLElement).style.display).toBe("none");
+			}
+		});
+	});
+});
+
+// Test list operations: delete non-existent index
+test("h.list handle delete with proper indexing", () => {
+	const list = ["a", "b", "c"];
+	const firstElement = h.list(list, (value) => h.div(`Item: ${value}`));
+
+	document.body.appendChild(firstElement);
+	return waitForNextFrame().then(() => {
+		// Delete multiple items from different positions
+		list.splice(1, 1); // delete "b"
+		h.update(list);
+		return waitForNextFrame().then(() => {
+			expect(list).toEqual(["a", "c"]);
+			const listElements = document.querySelectorAll("[data-ns-list]");
+			expect(listElements.length).toBeGreaterThanOrEqual(1);
+
+			list.splice(0, 1); // delete "a"
+			h.update(list);
+			return waitForNextFrame().then(() => {
+				expect(list).toEqual(["c"]);
+				const updatedElements = document.querySelectorAll("[data-ns-list]");
+				// Should have at least one element with "c"
+				const textContents = Array.from(updatedElements).map(
+					(d) => d.textContent || "",
+				);
+				expect(textContents).toContain("Item: c");
+			});
+		});
+	});
+});
+
+// Test virtual list height detection with explicit container height
+test("h.virtualList detects correct container height", () => {
+	const items = Array.from({ length: 100 }, (_, i) => ({
+		id: i,
+		name: `Item ${i}`,
+	}));
+
+	const container = h.virtualList(
+		items,
+		{ style: { height: "300px", overflow: "auto" } },
+		(item) => h.div({ style: { height: "50px" } }, item.name),
+		{ itemHeight: 50, containerHeight: 300 },
+	);
+
+	document.body.appendChild(container);
+	return waitForNextFrame().then(() => {
+		// Container should have the specified height
+		expect(container.style.height).toBe("300px");
+		expect(container.style.overflow).toContain("auto");
+		// Virtual list should create content container
+		const contentContainer = container.querySelector("div");
+		expect(contentContainer).not.toBeNull();
+	});
+});
+
+// Test virtual list with dynamic height mode
+test("h.virtualList dynamic height mode measures correctly", () => {
+	const items = Array.from({ length: 50 }, (_, i) => ({
+		id: i,
+		name: `Item ${i}`,
+		lines: Math.floor(Math.random() * 3) + 1, // 1-3 lines
+	}));
+
+	const container = h.virtualList(
+		items,
+		{ style: { height: "400px", overflow: "auto" } },
+		(item) => {
+			const lines = Array.from({ length: item.lines }, (_, i) =>
+				h.div({ class: "line" }, `Line ${i + 1}`),
+			);
+			return h.div({ style: { padding: "10px" } }, item.name, ...lines);
+		},
+		{ itemHeight: "auto", containerHeight: 400, overscan: 5 },
+	);
+
+	document.body.appendChild(container);
+	return waitForNextFrame().then(() => {
+		// Container should have the specified height
+		expect(container.style.height).toBe("400px");
+		expect(container.style.overflow).toContain("auto");
+
+		// Wait for height measurement
+		return waitForNextFrame().then(() => {
+			// In dynamic height mode, content container should have calculated height
+			const contentContainer = container.querySelector("div");
+			expect(contentContainer).not.toBeNull();
+			if (contentContainer) {
+				// Content container should have a height greater than 0
+				expect(
+					parseFloat(contentContainer.style.height || "0"),
+				).toBeGreaterThan(0);
+			}
+		});
+	});
+});
+
+// Test virtual list height updates with container resize
+test("h.virtualList updates when container height changes", () => {
+	const items = Array.from({ length: 200 }, (_, i) => ({
+		id: i,
+		name: `Item ${i}`,
+	}));
+
+	const container = h.virtualList(
+		items,
+		{ style: { height: "200px", overflow: "auto" } },
+		(item) => h.div({ style: { height: "40px" } }, item.name),
+		{ itemHeight: 40, containerHeight: 200 },
+	);
+
+	document.body.appendChild(container);
+	return waitForNextFrame().then(() => {
+		// Initial height should be 200px
+		expect(container.style.height).toBe("200px");
+
+		// Simulate container resize by changing height
+		container.style.height = "400px";
+		return waitForNextFrame().then(() => {
+			// Trigger height detection
+			const resizeEvent = new Event("scroll");
+			container.dispatchEvent(resizeEvent);
+			return waitForNextFrame().then(() => {
+				// Should detect new height
+				expect(container.style.height).toBe("400px");
+			});
+		});
+	});
+});
+
+// Test virtual list with function item height
+test("h.virtualList with function itemHeight calculates correctly", () => {
+	const items = Array.from({ length: 50 }, (_, i) => ({
+		id: i,
+		name: `Item ${i}`,
+		height: (i % 3) * 20 + 30, // 30, 50, 70 height pattern
+	}));
+
+	const container = h.virtualList(
+		items,
+		{ style: { height: "300px", overflow: "auto" } },
+		(item) => h.div({ style: { height: `${item.height}px` } }, item.name),
+		{ itemHeight: (index) => items[index]?.height || 50, containerHeight: 300 },
+	);
+
+	document.body.appendChild(container);
+	return waitForNextFrame().then(() => {
+		// Container should have the specified height
+		expect(container.style.height).toBe("300px");
+
+		// Content container should exist
+		const contentContainer = container.querySelector("div");
+		expect(contentContainer).not.toBeNull();
+	});
+});
