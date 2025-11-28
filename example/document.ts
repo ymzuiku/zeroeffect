@@ -300,6 +300,7 @@ h.css(`
 		padding: 24px;
 		min-height: 200px;
 		max-height: 600px;
+		overflow-y: auto;
 		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 	}
 	
@@ -775,7 +776,7 @@ h.css(`
 // Create example section component
 function createExampleSection(
 	id: string,
-	_codeExample: string,
+	codeExample: string,
 	renderFn: () => HTMLElement,
 ) {
 	const section = h.div(
@@ -817,7 +818,7 @@ function createExampleSection(
 								display: "block",
 							},
 						},
-						_codeExample,
+						codeExample,
 					),
 				),
 			),
@@ -844,9 +845,11 @@ export const DocumentPage = () => {
 	// README-CLAUDE.md content
 	const claudeMdContent = `# zeroeffect Usage Guide for Claude
 
+Document: https://zeroeffect.vercel.app/
+
 ## Core Concept
 
-zeroeffect is a reactive DOM library that uses **plain JavaScript objects** as state. No Signal, no Proxy, no Virtual DOM.
+No Signal, no Proxy, no Virtual DOM.
 
 ## Basic Usage
 
@@ -887,6 +890,12 @@ h.div([state], {
   style: () => ({ color: state.color }),
 });
 
+// No update
+h.div([], {
+  class: () => (state.active ? "active" : "inactive"),
+  style: () => ({ color: state.color }),
+});
+
 // Event handler
 h.button(
   {
@@ -912,27 +921,15 @@ h.list(
   items, // First parameter is the data list array
   (item, index) => h.div([item], () => \`Item: \${item}\`) // Render function
 );
-// When items.length changes:
-//   - Adding items: existing elements won't re-render, only new items are added
-//   - Removing items: entire list re-renders (simplifies usage - no key needed, indices are always correct)
+// When items.length changes, list re-renders
 // Individual items update when their own dependencies change
 
 // Virtual list (for large datasets, 100k+ items)
 h.virtualList(
   items, // First parameter is the data list array
   { class: "h-full overflow-y-auto" }, // Container attributes - REQUIRED
-  (item, index) => h.div([item], () => \`Item: \${item}\`), // Render function
-  {
-    itemHeight:'auto', // if use 'auto', it will be Dynamic height - automatically measures actual rendered height
-    containerHeight: 600, // Optional, defaults to parent height
-    overscan: 6, // Optional, items to render outside viewport (default: 6)
-    estimatedItemHeight: 150 // Optional, initial estimate for dynamic height mode (default: 150)
-  }
+  (item, index) => h.div([item], () => \`Item: \${item}\`) // Render function
 );
-// Only renders visible items for performance
-// Automatically updates when data changes via h.update(items)
-// Dynamic height mode: set itemHeight to "auto" to measure actual rendered heights
-
 // Bind to existing element
 h.element(existingDiv)([state], () => state.text);
 \`\`\`
@@ -952,20 +949,9 @@ h.element(existingDiv)([state], () => state.text);
   - **First parameter MUST be the data list array**
   - \`renderFn(value, index)\`: Function that returns element for each item
   - **Each item element can have its own dependencies** (e.g., \`h.div([item], ...)\` makes each item reactive to its own data)
-  - When array length changes:
-    - **Adding items**: existing elements won't re-render, only new items are added
-    - **Removing items**: entire list re-renders (simplifies usage - no key needed, indices are always correct)
+  - List re-renders when array length changes
   - Individual items update when their own dependencies change
 - \`h.virtualList(items, attrs, renderFn, options?)\` - Virtual list for large datasets (100k+ items)
-  - **First parameter MUST be the data list array**
-  - \`attrs\`: Container attributes (e.g., class, style) - REQUIRED
-  - \`renderFn(value, index)\`: Function that returns element for each item
-  - \`options.itemHeight\`: Fixed height (number), function \`(index) => number\`, or \`"auto"\` for dynamic height
-  - \`options.containerHeight\`: Optional container height (defaults to parent)
-  - \`options.overscan\`: Optional items to render outside viewport (default: 5)
-  - \`options.estimatedItemHeight\`: Optional initial estimate for dynamic height mode (default: 50)
-  - Only renders visible items for performance
-  - Automatically updates when data changes via \`h.update(items)\`
   - Dynamic height mode: measures actual rendered heights and caches them for accurate scrolling
 - \`h.element(element)\` - Bind reactive properties to existing element
 
@@ -1484,13 +1470,7 @@ const app = h.div(
 						\`Line \${i + 1} of \${item.lines}: This is dynamic content that makes each item have different heights.\`
 					)
 				)
-			),
-		{
-			itemHeight: 'auto', // if use 'auto', it will be Dynamic height - automatically measures actual rendered height
-			containerHeight: 600, // Container height
-			overscan: 6, // Render 5 extra items above and below viewport
-			estimatedItemHeight: 150 // Initial estimate for dynamic height mode
-		}
+			)
 	)
 );
 
@@ -1505,7 +1485,7 @@ document.body.append(app);`,
 					}>;
 				};
 				return h.div(
-					{ class: "space-y-4" },
+					{ class: "space-y-4 flex-1 h-[500px] flex flex-col" },
 					h.div(
 						{
 							class:
@@ -1548,9 +1528,10 @@ document.body.append(app);`,
 								`Total: ${virtualListState.items.length.toLocaleString()} items`,
 						),
 					),
+					// h.div({ class: "flex-1 none bg-red-600" }, "flex-1 none"),
 					h.virtualList(
 						virtualListState.items,
-						{ class: "h-full overflow-y-auto" },
+						{ class: "flex-1" },
 						(item, index) => {
 							return h.div(
 								[item],
@@ -1603,10 +1584,6 @@ document.body.append(app);`,
 									),
 								),
 							);
-						},
-						{
-							itemHeight: "auto", // if use 'auto', it will be Dynamic height - automatically measures actual rendered height
-							// containerHeight: 600, // Container height
 						},
 					),
 				);
@@ -2079,33 +2056,11 @@ function highlightCode() {
 	}
 }
 
-// Wait for DOM to be ready
-if (document.readyState === "loading") {
-	document.addEventListener("DOMContentLoaded", () => {
-		const root = document.getElementById("root");
-		if (root) {
-			root.appendChild(DocumentPage());
-			// Set initial title
-			document.title = translations[langState.current].title;
-			// Highlight code after a short delay to ensure Prism is loaded
-			setTimeout(highlightCode, 100);
-			// Also highlight on language change
-			h.onUpdate(() => {
-				setTimeout(highlightCode, 50);
-			});
-		}
-	});
-} else {
-	const root = document.getElementById("root");
-	if (root) {
-		root.appendChild(DocumentPage());
-		// Set initial title
-		document.title = translations[langState.current].title;
-		// Highlight code after a short delay
-		setTimeout(highlightCode, 100);
-		// Also highlight on language change
-		h.onUpdate(() => {
-			setTimeout(highlightCode, 50);
-		});
-	}
+const root = document.getElementById("root");
+if (root) {
+	root.appendChild(DocumentPage());
+	// Set initial title
+	document.title = translations[langState.current].title;
+	// Highlight code after a short delay
+	setTimeout(highlightCode, 100);
 }

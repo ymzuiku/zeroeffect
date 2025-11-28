@@ -2,6 +2,8 @@
 
 Document: https://zeroeffect.vercel.app/
 
+CLAUDE: [CLAUDE.md](CLAUDE.txt)
+
 ## Core Concept
 
 No Signal, no Proxy, no Virtual DOM.
@@ -33,106 +35,6 @@ h.update(state); // Manual update required
 4. **Reactive Attributes**: Functions as attribute values execute on update
 5. **Event Handlers**: Attributes starting with `on` (e.g., `onclick`) are event handlers, not reactive
 
-## Common Patterns
+## License
 
-```typescript
-// Reactive content
-h.div([state], () => `Value: ${state.value}`);
-
-// Reactive attributes
-h.div([state], {
-  class: () => (state.active ? "active" : "inactive"),
-  style: () => ({ color: state.color }),
-});
-
-// No update
-h.div([], {
-  class: () => (state.active ? "active" : "inactive"),
-  style: () => ({ color: state.color }),
-});
-
-// Event handler
-h.button(
-  {
-    onclick: () => {
-      state.count++;
-      h.update(state);
-    },
-  },
-  "Click"
-);
-
-// Conditional rendering
-h.if(
-  [state], // Dependencies array
-  () => state.show, // Condition function (returns truthy/falsy)
-  () => h.div("Visible"), // Render function when condition is true
-  () => h.div("Hidden") // Optional: render function when condition is false
-);
-// Without else: returns hidden span when condition is false
-
-// List rendering
-h.list(
-  items, // First parameter is the data list array
-  (item, index) => h.div([item], () => `Item: ${item}`) // Render function
-);
-// When items.length changes, list re-renders
-// Individual items update when their own dependencies change
-
-// Virtual list (for large datasets, 100k+ items)
-h.virtualList(
-  items, // First parameter is the data list array
-  { class: "h-full overflow-y-auto" }, // Container attributes - REQUIRED
-  (item, index) => h.div([item], () => `Item: ${item}`), // Render function
-  {
-    itemHeight: 50, // Fixed height, function: (index) => number, or "auto" for dynamic height
-    containerHeight: 600, // Optional, defaults to parent height
-    overscan: 5, // Optional, items to render outside viewport (default: 5)
-    estimatedItemHeight: 50, // Optional, initial estimate for dynamic height mode (default: 50)
-  }
-);
-// Only renders visible items for performance
-// Automatically updates when data changes via h.update(items)
-// Dynamic height mode: set itemHeight to "auto" to measure actual rendered heights
-
-// Bind to existing element
-h.element(existingDiv)([state], () => state.text);
-```
-
-## Special Methods
-
-- `h.update(state)` - Manually trigger update for state
-- `h.onUpdate(callback)` - Register update callback
-- `h.css(styles)` - Inject CSS into head
-- `h.innerHTML(html)` - Render HTML string
-- `h.if(deps, condition, renderFn, elseRenderFn?)` - Conditional rendering
-  - `deps`: Dependencies array
-  - `condition`: Function returning truthy/falsy
-  - `renderFn`: Function returning element when condition is true
-  - `elseRenderFn`: Optional function returning element when condition is false (if omitted, returns hidden span)
-- `h.list(dataList, renderFn)` - List rendering
-  - **First parameter MUST be the data list array**
-  - `renderFn(value, index)`: Function that returns element for each item
-  - **Each item element can have its own dependencies** (e.g., `h.div([item], ...)` makes each item reactive to its own data)
-  - List re-renders when array length changes
-  - Individual items update when their own dependencies change
-- `h.virtualList(items, attrs, renderFn, options?)` - Virtual list for large datasets (100k+ items)
-  - **First parameter MUST be the data list array**
-  - `attrs`: Container attributes (e.g., class, style) - REQUIRED
-  - `renderFn(value, index)`: Function that returns element for each item
-  - `options.itemHeight`: Fixed height (number), function `(index) => number`, or `"auto"` for dynamic height
-  - `options.containerHeight`: Optional container height (defaults to parent)
-  - `options.overscan`: Optional items to render outside viewport (default: 5)
-  - `options.estimatedItemHeight`: Optional initial estimate for dynamic height mode (default: 50)
-  - Only renders visible items for performance
-  - Automatically updates when data changes via `h.update(items)`
-  - Dynamic height mode: measures actual rendered heights and caches them for accurate scrolling
-- `h.element(element)` - Bind reactive properties to existing element
-
-## Important Notes
-
-- Multiple `h.update()` calls in same frame are batched
-- Falsy values (`false`, `null`, `undefined`, `NaN`, `''`) don't render
-- Custom tags: `h["custom-tag"]()` works, but reserved methods don't: `update`, `onUpdate`, `list`, `if`, `css`, `innerHTML`, `element`, `virtualList`
-- **TypeScript**: For custom tags, use type assertion: `h["iconify-icon" as "div"]({ ... })` to avoid type errors
-- Elements must be in DOM for updates to work
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.

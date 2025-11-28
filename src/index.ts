@@ -1334,12 +1334,13 @@ function virtualList<T = unknown>(
 			resizeThrottleId = requestAnimationFrame(() => {
 				resizeThrottleId = null;
 				// 检测容器高度变化
-				const currentHeight = container.clientHeight;
+				const currentHeight = container.offsetHeight;
 				if (currentHeight > 0) {
 					// 限制高度不超过屏幕的 2 倍
 					const newHeight = Math.min(currentHeight, maxHeight);
 					if (newHeight !== state.containerHeight) {
 						state.containerHeight = newHeight;
+						container.style.height = `${newHeight}px`;
 						// 重新渲染可见项目
 						renderVisibleItems(state.listData);
 					}
@@ -1348,26 +1349,36 @@ function virtualList<T = unknown>(
 		}
 	};
 
-	// 高度检测函数：等待父容器准备好
+	// 高度检测函数：等待容器准备好
 	const checkContainerHeight = (): void => {
-		const parentHeight = container.parentElement?.clientHeight || 0;
+		// 首先尝试读取容器自身的offsetHeight
+		const containerOffsetHeight = container.offsetHeight;
 
-		if (parentHeight === 0) {
-			// 父容器还没有高度，继续等待下一帧
-			requestAnimationFrame(checkContainerHeight);
-			return;
-		}
-
-		// 限制高度不超过屏幕的 2 倍
-		const newHeight = Math.min(parentHeight, maxHeight);
 		if (initialContainerHeight) {
 			// 如果设置了初始高度，直接使用
 			state.containerHeight = initialContainerHeight;
 			container.style.height = `${initialContainerHeight}px`;
-		} else if (newHeight !== state.containerHeight) {
-			// 否则使用检测到的高度
-			state.containerHeight = newHeight;
-			container.style.height = `${newHeight}px`;
+		} else if (containerOffsetHeight > 0) {
+			// 如果容器有明确的高度，使用它
+			const newHeight = Math.min(containerOffsetHeight, maxHeight);
+			if (newHeight !== state.containerHeight) {
+				state.containerHeight = newHeight;
+				container.style.height = `${newHeight}px`;
+			}
+		} else {
+			// 容器没有高度，尝试读取父容器高度
+			const parentHeight = container.parentElement?.clientHeight || 0;
+			if (parentHeight === 0) {
+				// 父容器还没有高度，继续等待下一帧
+				requestAnimationFrame(checkContainerHeight);
+				return;
+			}
+			// 限制高度不超过屏幕的 2 倍
+			const newHeight = Math.min(parentHeight, maxHeight);
+			if (newHeight !== state.containerHeight) {
+				state.containerHeight = newHeight;
+				container.style.height = `${newHeight}px`;
+			}
 		}
 
 		// 初始渲染

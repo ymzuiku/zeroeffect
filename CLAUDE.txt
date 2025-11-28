@@ -1,0 +1,115 @@
+# zeroeffect Usage Guide for Claude
+
+No Signal, no Proxy, no Virtual DOM.
+
+## Basic Usage
+
+```typescript
+import { h } from "zeroeffect";
+
+// State is just a plain object
+const state = { count: 0 };
+
+// Create element with reactive content
+const div = h.div(
+  [state], // First arg: dependencies array
+  () => `Count: ${state.count}` // Reactive content function
+);
+
+// Update state and trigger re-render
+state.count = 5;
+h.update(state); // Manual update required
+```
+
+## Key Rules
+
+1. **Dependencies**: First parameter as array `[state]` makes content reactive to that state
+2. **Manual Updates**: Call `h.update(state)` after modifying state to update DOM
+3. **Reactive Content**: Functions in content position execute on update
+4. **Reactive Attributes**: Functions as attribute values execute on update
+5. **Event Handlers**: Attributes starting with `on` (e.g., `onclick`) are event handlers, not reactive
+
+## Common Patterns
+
+```typescript
+// Reactive content
+h.div([state], () => `Value: ${state.value}`);
+
+// Reactive attributes
+h.div([state], {
+  class: () => (state.active ? "active" : "inactive"),
+  style: () => ({ color: state.color }),
+});
+
+// No update
+h.div([], {
+  class: () => (state.active ? "active" : "inactive"),
+  style: () => ({ color: state.color }),
+});
+
+// Event handler
+h.button(
+  {
+    onclick: () => {
+      state.count++;
+      h.update(state);
+    },
+  },
+  "Click"
+);
+
+// Conditional rendering
+h.if(
+  [state], // Dependencies array
+  () => state.show, // Condition function (returns truthy/falsy)
+  () => h.div("Visible"), // Render function when condition is true
+  () => h.div("Hidden") // Optional: render function when condition is false
+);
+// Without else: returns hidden span when condition is false
+
+// List rendering
+h.list(
+  items, // First parameter is the data list array
+  (item, index) => h.div([item], () => `Item: ${item}`) // Render function
+);
+// When items.length changes, list re-renders
+// Individual items update when their own dependencies change
+
+// Virtual list (for large datasets, 100k+ items)
+h.virtualList(
+  items, // First parameter is the data list array
+  { class: "h-full overflow-y-auto" }, // Container attributes - REQUIRED
+  (item, index) => h.div([item], () => `Item: ${item}`) // Render function
+);
+// Bind to existing element
+h.element(existingDiv)([state], () => state.text);
+```
+
+## Special Methods
+
+- `h.update(state)` - Manually trigger update for state
+- `h.onUpdate(callback)` - Register update callback
+- `h.css(styles)` - Inject CSS into head
+- `h.innerHTML(html)` - Render HTML string
+- `h.if(deps, condition, renderFn, elseRenderFn?)` - Conditional rendering
+  - `deps`: Dependencies array
+  - `condition`: Function returning truthy/falsy
+  - `renderFn`: Function returning element when condition is true
+  - `elseRenderFn`: Optional function returning element when condition is false (if omitted, returns hidden span)
+- `h.list(dataList, renderFn)` - List rendering
+  - **First parameter MUST be the data list array**
+  - `renderFn(value, index)`: Function that returns element for each item
+  - **Each item element can have its own dependencies** (e.g., `h.div([item], ...)` makes each item reactive to its own data)
+  - List re-renders when array length changes
+  - Individual items update when their own dependencies change
+- `h.virtualList(items, attrs, renderFn, options?)` - Virtual list for large datasets (100k+ items)
+  - Dynamic height mode: measures actual rendered heights and caches them for accurate scrolling
+- `h.element(element)` - Bind reactive properties to existing element
+
+## Important Notes
+
+- Multiple `h.update()` calls in same frame are batched
+- Falsy values (`false`, `null`, `undefined`, `NaN`, `''`) don't render
+- Custom tags: `h["custom-tag"]()` works, but reserved methods don't: `update`, `onUpdate`, `list`, `if`, `css`, `innerHTML`, `element`, `virtualList`
+- **TypeScript**: For custom tags, use type assertion: `h["iconify-icon" as "div"]({ ... })` to avoid type errors
+- Elements must be in DOM for updates to work
