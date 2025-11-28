@@ -146,7 +146,12 @@ const exampleStates = {
 	list: { items: [1, 2, 3, 4, 5] },
 	element: { count: 0 },
 	todo: {
-		todos: [] as Array<{ id: number; text: string; completed: boolean }>,
+		todos: [] as Array<{
+			id: number;
+			text: string;
+			completed: boolean;
+			renderTime: string;
+		}>,
 	},
 	css: {},
 	customTags: {},
@@ -1237,7 +1242,8 @@ const inputGroup = h.div(
 					todos.push({
 						id: Date.now(),
 						text: input.value.trim(),
-						completed: false
+						completed: false,
+						renderTime: new Date().toLocaleTimeString()
 					});
 					input.value = "";
 					h.update(todos);
@@ -1254,7 +1260,8 @@ const inputGroup = h.div(
 				todos.push({
 					id: Date.now(),
 					text: input.value.trim(),
-					completed: false
+					completed: false,
+					renderTime: new Date().toLocaleTimeString()
 				});
 				input.value = "";
 				h.update(todos);
@@ -1290,6 +1297,15 @@ const todoList = h.list(
 				value: () => todo.text,
 				onblur: () => h.update(todo)
 			}),
+			h.span([todo], { class: "text-xs text-gray-500" }, () =>
+				\`Rendered: \${todo.renderTime}\`
+			),
+			h.button({
+				onclick: () => {
+					todo.renderTime = new Date().toLocaleTimeString();
+					h.update(todo);
+				}
+			}, "Re-render"),
 			h.button({
 				onclick: () => {
 					todos.splice(index, 1);
@@ -1303,7 +1319,12 @@ const app = h.div({ class: "space-y-4" }, inputGroup, todoList);
 document.body.append(app);`,
 			() => {
 				const todoState = exampleStates.todo as {
-					todos: Array<{ id: number; text: string; completed: boolean }>;
+					todos: Array<{
+						id: number;
+						text: string;
+						completed: boolean;
+						renderTime: string;
+					}>;
 				};
 
 				return h.div(
@@ -1323,6 +1344,7 @@ document.body.append(app);`,
 											id: Date.now(),
 											text: input.value.trim(),
 											completed: false,
+											renderTime: new Date().toLocaleTimeString(),
 										});
 										input.value = "";
 										h.update(todoState.todos);
@@ -1334,6 +1356,21 @@ document.body.append(app);`,
 							{
 								class:
 									"px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 whitespace-nowrap",
+								onclick: () => {
+									const input = document.getElementById(
+										"doc-todo-input",
+									) as HTMLInputElement;
+									if (input?.value.trim()) {
+										todoState.todos.push({
+											id: Date.now(),
+											text: input.value.trim(),
+											completed: false,
+											renderTime: new Date().toLocaleTimeString(),
+										});
+										input.value = "";
+										h.update(todoState.todos);
+									}
+								},
 							},
 							"Add",
 						),
@@ -1341,7 +1378,12 @@ document.body.append(app);`,
 					h.list(
 						[todoState.todos],
 						(
-							todo: { id: number; text: string; completed: boolean },
+							todo: {
+								id: number;
+								text: string;
+								completed: boolean;
+								renderTime: string;
+							},
 							index: number,
 						) =>
 							h.div(
@@ -1363,6 +1405,22 @@ document.body.append(app);`,
 									},
 								}),
 								h.span([todo], { class: "flex-1 text-sm" }, () => todo.text),
+								h.span(
+									[todo],
+									{ class: "text-xs text-gray-500" },
+									() => `Rendered: ${todo.renderTime}`,
+								),
+								h.button(
+									{
+										class:
+											"px-3 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600 text-sm whitespace-nowrap",
+										onclick: () => {
+											todo.renderTime = new Date().toLocaleTimeString();
+											h.update(todo);
+										},
+									},
+									"Re-render",
+								),
 								h.button(
 									{
 										class:

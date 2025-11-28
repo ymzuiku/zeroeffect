@@ -67,6 +67,18 @@ export const ExamplePage = () => {
 			() => `Count: ${state.count} -- ${new Date().toISOString()}`,
 			h.span([state], () => (state.count % 2 === 0 ? "Even" : "Odd")),
 		),
+		h.if(
+			[state],
+			() => state.count > 2,
+			() => {
+				console.log("==debug==", "rerender");
+				return h.div([state], "Count is greater than 2");
+			},
+			() => {
+				console.log("==debug==", "else rerender");
+				return h.div([state], "Count is less than 2");
+			},
+		),
 		// h.element 用于给已有的 DOM 元素绑定响应式属性和依赖
 		h.element(existingDiv)([state], { class: "text-2xl font-bold" }, () =>
 			state.count % 2 === 0 ? "Even" : "Odd",
@@ -139,8 +151,6 @@ export const ExamplePage = () => {
 			[state],
 			() => state.count % 2 === 0,
 			() => {
-				// 这行都没打印
-				console.log("==debug==", state.count % 2 === 0);
 				return h.div([state], "I am even2");
 			},
 		),

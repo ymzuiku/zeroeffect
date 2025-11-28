@@ -661,6 +661,30 @@ test("h.if condition function execution", () => {
 	});
 });
 
+test("h.if does not re-render when condition value unchanged", () => {
+	const state = { show: true };
+	let renderCount = 0;
+	const element = h.if(
+		[state],
+		() => state.show,
+		() => {
+			renderCount++;
+			return h.div("Visible");
+		},
+	);
+
+	document.body.appendChild(element);
+	h.update(state);
+	return waitForNextFrame().then(() => {
+		expect(renderCount).toBe(1); // Should render once initially
+		// Update state but keep condition value the same
+		h.update(state);
+		return waitForNextFrame().then(() => {
+			expect(renderCount).toBe(1); // Should not re-render when condition value unchanged
+		});
+	});
+});
+
 test("h.if without else returns span placeholder", () => {
 	const state = { show: false };
 	const element = h.if(

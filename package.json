@@ -6,9 +6,9 @@
   "scripts": {
     "dev": "bun example/document.html",
     "build-logo": "bun scripts/build-logo.ts project-chrome-tabs/public/logo.png",
-    "bundle": "bun build --compile --minify --bytecode project-chrome-tabs/server/index.ts project-chrome-tabs/server/worker.ts project-chrome-tabs/public/* --outfile dist/chrome_tabs",
+    "bundle": "bun build example/document.html --outdir=dist",
     "pre-init": "bunx simple-git-hooks",
-    "tdd": "bun test --bail --concurrent",
+    "tdd": "bun test --bail",
     "lint": "bunx biome check --write && tsc --noEmit"
   },
   "simple-git-hooks": {

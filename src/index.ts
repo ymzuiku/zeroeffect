@@ -352,6 +352,7 @@ interface ReactiveElementInfo {
 	renderFn?: () => HTMLElement;
 	elseRenderFn?: () => HTMLElement; // Optional else render function
 	conditionalPlaceholder?: HTMLElement; // Current placeholder element for conditional rendering
+	lastConditionValue?: unknown; // Last condition value to detect changes
 	isList?: boolean;
 	listData?: unknown[]; // The array data (first element of deps)
 	listDeps?: unknown[]; // Other dependencies besides the list
@@ -668,6 +669,15 @@ function updateConditional(
 	const conditionResult = condition();
 	const shouldRender = Boolean(conditionResult);
 
+	// Check if condition value has changed
+	if (reactiveInfo.lastConditionValue === conditionResult) {
+		// Condition value hasn't changed, no need to re-render
+		return;
+	}
+
+	// Update last condition value
+	reactiveInfo.lastConditionValue = conditionResult;
+
 	const currentPlaceholder = reactiveInfo.conditionalPlaceholder;
 	if (!currentPlaceholder) {
 		// Initialize placeholder if not set
@@ -921,6 +931,28 @@ function updateList(
 			reactiveInfo.element = firstElement;
 		} else {
 			// List length changed (non-zero to non-zero) - re-render all items
+			// Save the insertion point before removing elements
+			// We need to find the node after the LAST list element, not the first one
+			let insertBeforeNode: Node | null = null;
+			if (parent && currentPlaceholder.parentNode === parent) {
+				// Find the last list element to get the correct insertion point
+				let lastListElement: HTMLElement | null = null;
+				for (let i = currentLength - 1; i >= 0; i--) {
+					const listElement = listElements.get(i);
+					if (listElement && listElement.parentNode === parent) {
+						lastListElement = listElement;
+						break;
+					}
+				}
+				// If we found the last element, use its nextSibling
+				// Otherwise, fall back to currentPlaceholder.nextSibling
+				if (lastListElement) {
+					insertBeforeNode = lastListElement.nextSibling;
+				} else {
+					insertBeforeNode = currentPlaceholder.nextSibling;
+				}
+			}
+
 			// Remove only existing list elements (those in listElements map)
 			if (parent) {
 				const elementsToRemove: HTMLElement[] = [];
@@ -949,7 +981,18 @@ function updateList(
 			listElements.set(0, firstElement);
 
 			if (parent) {
-				parent.appendChild(firstElement);
+				// Insert at the original position, not at the end
+				// Verify insertBeforeNode is still a child of parent before using it
+				if (insertBeforeNode && insertBeforeNode.parentNode === parent) {
+					parent.insertBefore(firstElement, insertBeforeNode);
+				} else if (insertBeforeNode === null) {
+					// If insertBeforeNode is null, it means the list was at the end
+					parent.appendChild(firstElement);
+				} else {
+					// insertBeforeNode exists but is no longer a child of parent
+					// This shouldn't happen, but fallback to appendChild
+					parent.appendChild(firstElement);
+				}
 			}
 
 			// Insert remaining elements in order
