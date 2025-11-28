@@ -4,7 +4,7 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "bun --watch project-chrome-tabs/server/index.ts",
+    "dev": "bun example/index.html",
     "build-logo": "bun scripts/build-logo.ts project-chrome-tabs/public/logo.png",
     "bundle": "bun build --compile --minify --bytecode project-chrome-tabs/server/index.ts project-chrome-tabs/server/worker.ts project-chrome-tabs/public/* --outfile dist/chrome_tabs",
     "pre-init": "bunx simple-git-hooks",
@@ -16,7 +16,6 @@
   },
   "devDependencies": {
     "@types/bun": "latest",
-    "bun-plugin-tailwind": "^0.1.2",
     "simple-git-hooks": "^2.13.1",
     "typescript": "^5.9.3",
     "fake-indexeddb": "^6.2.5",
