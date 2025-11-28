@@ -35,12 +35,12 @@ const translations = {
 		list: {
 			title: "列表渲染",
 			content:
-				"使用 h.list() 渲染列表。第一个参数是依赖数组，第一个元素必须是列表数据数组，其他依赖是可选的。第二个参数是渲染函数，接收 value 和 index。当列表长度变化时：新增 item 时不会重新渲染现有元素，只添加新元素；删除 item 时会重新渲染整个列表（这是为了简化使用，不需要 key，并且索引一直是正确的）。每个列表项元素可以有自己的依赖，当这些依赖变化时，只有对应的项会更新。",
+				"使用 h.list() 渲染列表。第一个参数是数据列表数组。第二个参数是渲染函数，接收 value 和 index。当列表长度变化时：新增 item 时不会重新渲染现有元素，只添加新元素；删除 item 时会重新渲染整个列表（这是为了简化使用，不需要 key，并且索引一直是正确的）。每个列表项元素可以有自己的依赖，当这些依赖变化时，只有对应的项会更新。",
 		},
 		virtualList: {
 			title: "虚拟列表",
 			content:
-				'使用 h.virtualList() 渲染大量数据（10万+）。第一个参数是依赖数组，第一个元素必须是列表数据数组。第二个参数是渲染函数，接收 value 和 index。第三个参数是配置选项：itemHeight（固定高度、函数 (index) => number，或 "auto" 表示自动测量实际高度）、containerHeight（可选，默认使用父容器高度）、overscan（可选，预渲染项目数，默认5）、estimatedItemHeight（可选，动态高度模式的初始估算高度，默认50）。只渲染可见区域的项目，性能优异。数据变化时调用 h.update(items) 自动更新。动态高度模式会自动测量并缓存每个项目的实际高度。',
+				'使用 h.virtualList() 渲染大量数据（10万+）。第一个参数是数据列表数组。第二个参数是容器属性（如 class、style）。第三个参数是渲染函数，接收 value 和 index。第四个参数是配置选项：itemHeight（固定高度、函数 (index) => number，或 "auto" 表示动态高度）、containerHeight（可选，默认使用父容器高度）、overscan（可选，预渲染项目数，默认5）、estimatedItemHeight（可选，动态高度模式的初始估算高度，默认50）。只渲染可见区域的项目，性能优异。数据变化时调用 h.update(items) 自动更新。',
 		},
 		element: {
 			title: "绑定已有元素",
@@ -96,12 +96,12 @@ const translations = {
 		list: {
 			title: "List Rendering",
 			content:
-				"Use h.list() to render lists. The first parameter is a dependency array where the FIRST element MUST be the array to render, other dependencies are optional. The second parameter is a render function that receives value and index. When list length changes: adding items does NOT re-render existing elements, only new items are added; removing items re-renders the entire list (this simplifies usage - no key needed, and indices are always correct). Each list item element can have its own dependencies - when those dependencies change, only that specific item updates.",
+				"Use h.list() to render lists. The first parameter is the data list array. The second parameter is a render function that receives value and index. When list length changes: adding items does NOT re-render existing elements, only new items are added; removing items re-renders the entire list (this simplifies usage - no key needed, and indices are always correct). Each list item element can have its own dependencies - when those dependencies change, only that specific item updates.",
 		},
 		virtualList: {
 			title: "Virtual List",
 			content:
-				'Use h.virtualList() to render large datasets (100k+ items). First parameter is dependency array where first element MUST be the array to render. Second parameter is render function (value, index). Third parameter is options: itemHeight (fixed number, function (index) => number, or "auto" for dynamic height measurement), containerHeight (optional, defaults to parent), overscan (optional, default 5), estimatedItemHeight (optional, initial estimate for dynamic height mode, default 50). Only renders visible items for performance. Automatically updates when data changes via h.update(items). Dynamic height mode automatically measures and caches actual rendered heights.',
+				'Use h.virtualList() to render large datasets (100k+ items). First parameter is the data list array. Second parameter is container attributes (e.g., class, style). Third parameter is render function (value, index). Fourth parameter is options: itemHeight (fixed number, function (index) => number, or "auto" for dynamic height), containerHeight (optional, defaults to parent), overscan (optional, default 5), estimatedItemHeight (optional, initial estimate for dynamic height mode, default 50). Only renders visible items for performance. Automatically updates when data changes via h.update(items).',
 		},
 		element: {
 			title: "Binding Existing Elements",
@@ -155,7 +155,7 @@ const exampleStates = {
 	conditional: { count: 0 },
 	list: { items: [1, 2, 3, 4, 5] },
 	virtualList: {
-		items: Array.from({ length: 100000 }, (_, i) => ({
+		items: Array.from({ length: 10_000 }, (_, i) => ({
 			id: i,
 			name: `Item ${i}`,
 			value: Math.floor(Math.random() * 1000),
@@ -264,6 +264,8 @@ h.css(`
 		overflow-wrap: break-word;
 		word-wrap: break-word;
 		border: 1px solid #2d2d2d;
+		max-height: 600px;
+		overflow-y: auto;
 	}
 	
 	.doc-code-block pre {
@@ -297,6 +299,7 @@ h.css(`
 		border-radius: 8px;
 		padding: 24px;
 		min-height: 200px;
+		max-height: 600px;
 		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 	}
 	
@@ -906,8 +909,8 @@ h.if(
 
 // List rendering
 h.list(
-  [items, otherState], // First dep MUST be the array to render, other deps are optional
-  (item, index) => h.div([item], () => \`Item: \${item}\`) // Each item can have its own dependencies
+  items, // First parameter is the data list array
+  (item, index) => h.div([item], () => \`Item: \${item}\`) // Render function
 );
 // When items.length changes:
 //   - Adding items: existing elements won't re-render, only new items are added
@@ -916,13 +919,14 @@ h.list(
 
 // Virtual list (for large datasets, 100k+ items)
 h.virtualList(
-  [items], // First dep MUST be the array to render
-  (item, index) => h.div([item], () => \`Item: \${item}\`),
+  items, // First parameter is the data list array
+  { class: "h-full overflow-y-auto" }, // Container attributes - REQUIRED
+  (item, index) => h.div([item], () => \`Item: \${item}\`), // Render function
   {
-    itemHeight:'auto',
+    itemHeight:'auto', // if use 'auto', it will be Dynamic height - automatically measures actual rendered height
     containerHeight: 600, // Optional, defaults to parent height
-    overscan: 5, // Optional, items to render outside viewport (default: 5)
-    estimatedItemHeight: 50 // Optional, initial estimate for dynamic height mode (default: 50)
+    overscan: 6, // Optional, items to render outside viewport (default: 6)
+    estimatedItemHeight: 150 // Optional, initial estimate for dynamic height mode (default: 150)
   }
 );
 // Only renders visible items for performance
@@ -944,17 +948,17 @@ h.element(existingDiv)([state], () => state.text);
   - \`condition\`: Function returning truthy/falsy
   - \`renderFn\`: Function returning element when condition is true
   - \`elseRenderFn\`: Optional function returning element when condition is false (if omitted, returns hidden span)
-- \`h.list(deps, renderFn)\` - List rendering
-  - **First dependency MUST be the array to render** (e.g., \`[items, otherState]\` where \`items\` is the list)
-  - Other dependencies are optional and shared across all items
+- \`h.list(dataList, renderFn)\` - List rendering
+  - **First parameter MUST be the data list array**
   - \`renderFn(value, index)\`: Function that returns element for each item
   - **Each item element can have its own dependencies** (e.g., \`h.div([item], ...)\` makes each item reactive to its own data)
   - When array length changes:
     - **Adding items**: existing elements won't re-render, only new items are added
     - **Removing items**: entire list re-renders (simplifies usage - no key needed, indices are always correct)
   - Individual items update when their own dependencies change
-- \`h.virtualList(deps, renderFn, options)\` - Virtual list for large datasets (100k+ items)
-  - **First dependency MUST be the array to render**
+- \`h.virtualList(items, attrs, renderFn, options?)\` - Virtual list for large datasets (100k+ items)
+  - **First parameter MUST be the data list array**
+  - \`attrs\`: Container attributes (e.g., class, style) - REQUIRED
   - \`renderFn(value, index)\`: Function that returns element for each item
   - \`options.itemHeight\`: Fixed height (number), function \`(index) => number\`, or \`"auto"\` for dynamic height
   - \`options.containerHeight\`: Optional container height (defaults to parent)
@@ -1325,22 +1329,18 @@ document.body.append(app);`,
 				const sharedState = { highlight: false };
 				return h.div(
 					{ class: "space-y-4" },
-					h.list(
-						[listState.items, sharedState],
-						(value: number, index: number) =>
-							h.div(
-								[value], // Each item has its own dependency on the item value
-								{
-									class:
-										"doc-p-2 doc-mb-2 doc-bg-white doc-border doc-border-gray-200 doc-rounded",
-									style: () => ({
-										backgroundColor: sharedState.highlight
-											? "#fef3c7"
-											: "white",
-									}),
-								},
-								() => `Item: ${value}, index: ${index}`,
-							),
+					h.list(listState.items, (value: number, index: number) =>
+						h.div(
+							[value], // Each item has its own dependency on the item value
+							{
+								class:
+									"doc-p-2 doc-mb-2 doc-bg-white doc-border doc-border-gray-200 doc-rounded",
+								style: () => ({
+									backgroundColor: sharedState.highlight ? "#fef3c7" : "white",
+								}),
+							},
+							() => `Item: ${value}, index: ${index}`,
+						),
 					),
 					h.div(
 						{ class: "flex-col flex-row-sm" },
@@ -1437,6 +1437,7 @@ const app = h.div(
 	),
 	h.virtualList(
 		[items],
+		{ class: "h-full overflow-y-auto" },
 		(item, index) =>
 			h.div(
 				[item],
@@ -1485,10 +1486,10 @@ const app = h.div(
 				)
 			),
 		{
-			itemHeight: "auto", // Dynamic height - automatically measures actual rendered height
-			containerHeight: 400, // Container height
-			overscan: 5, // Render 5 extra items above and below viewport
-			estimatedItemHeight: 80 // Initial estimate for dynamic height mode
+			itemHeight: 'auto', // if use 'auto', it will be Dynamic height - automatically measures actual rendered height
+			containerHeight: 600, // Container height
+			overscan: 6, // Render 5 extra items above and below viewport
+			estimatedItemHeight: 150 // Initial estimate for dynamic height mode
 		}
 	)
 );
@@ -1548,7 +1549,8 @@ document.body.append(app);`,
 						),
 					),
 					h.virtualList(
-						[virtualListState.items],
+						virtualListState.items,
+						{ class: "h-full overflow-y-auto" },
 						(item, index) => {
 							return h.div(
 								[item],
@@ -1603,10 +1605,8 @@ document.body.append(app);`,
 							);
 						},
 						{
-							itemHeight: "auto",
-							containerHeight: 400,
-							overscan: 5,
-							estimatedItemHeight: 80,
+							itemHeight: "auto", // if use 'auto', it will be Dynamic height - automatically measures actual rendered height
+							// containerHeight: 600, // Container height
 						},
 					),
 				);
@@ -1792,7 +1792,7 @@ document.body.append(app);`,
 						),
 					),
 					h.list(
-						[todoState.todos],
+						todoState.todos,
 						(
 							todo: {
 								id: number;

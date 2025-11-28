@@ -222,7 +222,7 @@ export const ExamplePage = () => {
 				),
 			),
 			// Use h.list to render todo list
-			h.list([todos], (todo, index) => {
+			h.list(todos, (todo, index) => {
 				return h.div(
 					[todo],
 					{
@@ -335,7 +335,8 @@ export const ExamplePage = () => {
 				),
 			),
 			h.virtualList(
-				[virtualListItems],
+				virtualListItems,
+				{ class: "h-full overflow-y-auto" },
 				(item, index) => {
 					return h.div(
 						[item],
@@ -381,11 +382,6 @@ export const ExamplePage = () => {
 							),
 						),
 					);
-				},
-				{
-					itemHeight: 60, // Fixed height for each item
-					containerHeight: 400, // Container height
-					overscan: 5, // Render 5 extra items above and below viewport
 				},
 			),
 		),

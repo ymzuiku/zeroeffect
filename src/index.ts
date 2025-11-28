@@ -750,28 +750,28 @@ function updateConditional(
 }
 
 // List function - renders a list of items with efficient diffing
-// First parameter must be an array where first element is the list data (array), others are dependencies
+// First parameter is the data list (array)
 // Second parameter is a render function that receives (value, index)
-// Type inference: T is inferred from the first element of deps array
+// Type inference: T is inferred from the dataList array
 function list<T>(
-	deps: [T[], ...unknown[]],
+	dataList: T[],
 	renderFn: (value: T, index: number) => HTMLElement,
 ): HTMLElement;
 function list(
-	deps: Dependencies,
+	dataList: unknown[],
 	renderFn: (value: unknown, index: number) => HTMLElement,
 ): HTMLElement;
 function list<T = unknown>(
-	deps: [T[], ...unknown[]] | Dependencies,
+	dataList: T[] | unknown[],
 	renderFn: (value: T, index: number) => HTMLElement,
 ): HTMLElement {
-	// First element must be the list array
-	if (deps.length === 0 || !Array.isArray(deps[0])) {
-		throw new Error("h.list: First dependency must be an array");
+	// First parameter must be an array
+	if (!Array.isArray(dataList)) {
+		throw new Error("h.list: First parameter must be an array");
 	}
 
-	const listData = deps[0] as unknown[];
-	const otherDeps = deps.slice(1);
+	const listData = dataList as T[];
+	const otherDeps: unknown[] = [];
 	// Cast renderFn to match internal type signature
 	const renderFnInternal = renderFn as (
 		value: unknown,
@@ -1157,11 +1157,11 @@ type VirtualListOptions = {
 	itemHeight: number | ((index: number) => number) | "auto";
 	/** 容器高度，默认使用父容器高度 */
 	containerHeight?: number;
-	/** 预渲染的项目数量（在可见区域前后），默认 5 */
+	/** 预渲染的项目数量（在可见区域前后），默认 6 */
 	overscan?: number;
 	/** 滚动容器元素，如果不提供则使用返回的容器 */
 	scrollContainer?: HTMLElement;
-	/** 动态高度模式下，估算的初始高度（用于首次渲染），默认 50 */
+	/** 动态高度模式下，估算的初始高度（用于首次渲染），默认 150 */
 	estimatedItemHeight?: number;
 };
 
@@ -1187,40 +1187,45 @@ type VirtualListState = {
 const virtualListInstances = new WeakMap<HTMLElement, VirtualListState>();
 
 function virtualList<T>(
-	deps: [T[], ...unknown[]],
+	items: T[],
+	attrs: Attributes,
 	renderFn: (value: T, index: number) => HTMLElement,
-	options: VirtualListOptions,
+	options?: VirtualListOptions,
 ): HTMLElement;
 function virtualList(
-	deps: Dependencies,
+	items: unknown[],
+	attrs: Attributes,
 	renderFn: (value: unknown, index: number) => HTMLElement,
-	options: VirtualListOptions,
+	options?: VirtualListOptions,
 ): HTMLElement;
 function virtualList<T = unknown>(
-	deps: [T[], ...unknown[]] | Dependencies,
+	items: T[] | unknown[],
+	attrs: Attributes,
 	renderFn: (value: T, index: number) => HTMLElement,
-	options: VirtualListOptions,
+	options?: VirtualListOptions,
 ): HTMLElement {
-	// 验证第一个依赖必须是数组
-	if (deps.length === 0 || !Array.isArray(deps[0])) {
-		throw new Error("h.virtualList: First dependency must be an array");
+	// 验证第一个参数必须是数组
+	if (!Array.isArray(items)) {
+		throw new Error("h.virtualList: First parameter must be an array");
 	}
 
-	const listData = deps[0] as T[];
-	const otherDeps = deps.slice(1);
+	const listData = items as T[];
+	const otherDeps: unknown[] = [];
 	const renderFnInternal = renderFn as (
 		value: unknown,
 		index: number,
 	) => HTMLElement;
 
-	// 配置选项
+	// attrs 参数必须传递，用于设置容器 div 的属性
+
+	// 配置选项（提供默认值）
 	const {
-		itemHeight,
+		itemHeight = "auto",
 		containerHeight: initialContainerHeight,
-		overscan = 5,
+		overscan = 6,
 		scrollContainer: externalScrollContainer,
-		estimatedItemHeight = 50,
-	} = options;
+		estimatedItemHeight = 150,
+	} = options || {};
 
 	// 判断是否为动态高度模式
 	const isDynamicHeight = itemHeight === "auto";
@@ -1275,22 +1280,17 @@ function virtualList<T = unknown>(
 		return index * itemHeight;
 	};
 
-	// 创建容器
-	const container = document.createElement("div");
-	container.style.position = "relative";
-	container.style.overflow = "auto";
-	if (initialContainerHeight) {
-		container.style.height = `${initialContainerHeight}px`;
-	}
-
-	// 创建内容容器
-	const contentContainer = document.createElement("div");
-	contentContainer.style.position = "relative";
-	container.appendChild(contentContainer);
+	// 确保 options 不为空
+	const finalOptions = options || {
+		itemHeight: "auto",
+		overscan: 6,
+		estimatedItemHeight: 150,
+	};
 
 	// 状态
 	const state: VirtualListState = {
 		scrollTop: 0,
+		// 初始高度为 0，等待检测父容器高度
 		containerHeight: initialContainerHeight || 0,
 		totalHeight: 0,
 		startIndex: 0,
@@ -1300,22 +1300,82 @@ function virtualList<T = unknown>(
 		spacerBottom: null,
 		listData: listData as unknown[],
 		renderFn: renderFnInternal,
-		options,
-		contentContainer,
+		options: finalOptions,
+		contentContainer: null as unknown as HTMLElement,
 		rafId: null,
 		itemHeights: new Map<number, number>(),
 		estimatedHeight: estimatedItemHeight,
 	};
 
-	// 更新容器高度
-	const updateContainerHeight = (): void => {
-		if (!initialContainerHeight) {
-			const rect = container.getBoundingClientRect();
-			state.containerHeight = rect.height || container.clientHeight;
-		} else {
-			state.containerHeight = initialContainerHeight;
+	// 创建容器
+	const container = document.createElement("div");
+	container.style.position = "relative";
+	container.style.overflow = "auto";
+
+	// 应用用户传递的 attrs
+	applyAttributes(container, attrs);
+
+	if (initialContainerHeight) {
+		container.style.height = `${initialContainerHeight}px`;
+	}
+
+	// 创建内容容器
+	const contentContainer = document.createElement("div");
+	contentContainer.style.position = "relative";
+	container.appendChild(contentContainer);
+
+	// 计算最大高度限制（屏幕高度的 2 倍）
+	const maxHeight = typeof window !== "undefined" ? window.innerHeight * 2 : 0;
+
+	// 节流器：滚动时检测高度
+	let resizeThrottleId: number | null = null;
+	const throttledHeightCheck = () => {
+		if (resizeThrottleId === null) {
+			resizeThrottleId = requestAnimationFrame(() => {
+				resizeThrottleId = null;
+				// 检测容器高度变化
+				const currentHeight = container.clientHeight;
+				if (currentHeight > 0) {
+					// 限制高度不超过屏幕的 2 倍
+					const newHeight = Math.min(currentHeight, maxHeight);
+					if (newHeight !== state.containerHeight) {
+						state.containerHeight = newHeight;
+						// 重新渲染可见项目
+						renderVisibleItems(state.listData);
+					}
+				}
+			});
 		}
 	};
+
+	// 高度检测函数：等待父容器准备好
+	const checkContainerHeight = (): void => {
+		const parentHeight = container.parentElement?.clientHeight || 0;
+
+		if (parentHeight === 0) {
+			// 父容器还没有高度，继续等待下一帧
+			requestAnimationFrame(checkContainerHeight);
+			return;
+		}
+
+		// 限制高度不超过屏幕的 2 倍
+		const newHeight = Math.min(parentHeight, maxHeight);
+		if (initialContainerHeight) {
+			// 如果设置了初始高度，直接使用
+			state.containerHeight = initialContainerHeight;
+			container.style.height = `${initialContainerHeight}px`;
+		} else if (newHeight !== state.containerHeight) {
+			// 否则使用检测到的高度
+			state.containerHeight = newHeight;
+			container.style.height = `${newHeight}px`;
+		}
+
+		// 初始渲染
+		renderVisibleItems(state.listData);
+	};
+
+	// 将内容容器设置到状态中
+	state.contentContainer = contentContainer;
 
 	// 计算可见范围
 	const calculateVisibleRange = (
@@ -1506,6 +1566,9 @@ function virtualList<T = unknown>(
 		const scrollContainer = externalScrollContainer || container;
 		state.scrollTop = scrollContainer.scrollTop;
 
+		// 滚动时检查高度变化
+		throttledHeightCheck();
+
 		if (state.rafId === null) {
 			state.rafId = requestAnimationFrame(() => {
 				state.rafId = null;
@@ -1533,24 +1596,16 @@ function virtualList<T = unknown>(
 
 	// 初始化
 	const init = (): void => {
-		updateContainerHeight();
+		// 设置总高度
 		state.totalHeight = calculateTotalHeight(listData as unknown[]);
 		contentContainer.style.height = `${state.totalHeight}px`;
 
+		// 添加滚动监听
 		const scrollContainer = externalScrollContainer || container;
 		scrollContainer.addEventListener("scroll", handleScroll, { passive: true });
 
-		// 监听窗口大小变化（如果使用父容器高度）
-		if (!initialContainerHeight) {
-			const resizeObserver = new ResizeObserver(() => {
-				updateContainerHeight();
-				renderVisibleItems(state.listData);
-			});
-			resizeObserver.observe(container);
-		}
-
-		// 初始渲染
-		renderVisibleItems(listData as unknown[]);
+		// 开始检测容器高度（等待父容器准备好）
+		checkContainerHeight();
 	};
 
 	// 初始化

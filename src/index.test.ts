@@ -248,7 +248,7 @@ test("h.if updates when condition changes", () => {
 
 test("h.list renders list items", () => {
 	const list = [1, 2, 3];
-	const firstElement = h.list([list], (value) => h.div(`Item: ${value}`));
+	const firstElement = h.list(list, (value) => h.div(`Item: ${value}`));
 
 	expect(firstElement.tagName).toBe("DIV");
 	expect(firstElement.textContent).toBe("Item: 1");
@@ -257,7 +257,7 @@ test("h.list renders list items", () => {
 
 test("h.list updates when length changes", () => {
 	const list = [1, 2, 3];
-	const firstElement = h.list([list], (value) => h.div(`Item: ${value}`));
+	const firstElement = h.list(list, (value) => h.div(`Item: ${value}`));
 
 	document.body.appendChild(firstElement);
 	// Wait for remaining elements to be inserted
@@ -279,7 +279,7 @@ test("h.list updates when length changes", () => {
 
 test("h.list handles empty list", () => {
 	const list: number[] = [];
-	const element = h.list([list], (value) => h.div(`Item: ${value}`));
+	const element = h.list(list, (value) => h.div(`Item: ${value}`));
 
 	expect(element.tagName).toBe("SPAN");
 	expect(element.style.display).toBe("none");
@@ -288,7 +288,7 @@ test("h.list handles empty list", () => {
 
 test("h.list handles list becoming empty", () => {
 	const list = [1];
-	const firstElement = h.list([list], (value) => h.div(`Item: ${value}`));
+	const firstElement = h.list(list, (value) => h.div(`Item: ${value}`));
 
 	document.body.appendChild(firstElement);
 	return waitForNextFrame().then(() => {
@@ -429,7 +429,7 @@ test("list with reactive items", () => {
 		{ id: 2, text: "Todo 2", completed: false },
 	];
 
-	const firstElement = h.list([todos], (todo) =>
+	const firstElement = h.list(todos, (todo) =>
 		h.div(
 			[todo],
 			() => `${todo.text} - ${todo.completed ? "Done" : "Pending"}`,
@@ -512,7 +512,7 @@ test("nested conditionals", () => {
 
 test("list with index", () => {
 	const items = ["a", "b", "c"];
-	const firstElement = h.list([items], (value, index) =>
+	const firstElement = h.list(items, (value, index) =>
 		h.div(`${index}: ${value}`),
 	);
 
@@ -527,7 +527,7 @@ test("complex nested structure", () => {
 	const div = h.div(
 		[state],
 		h.h1(() => state.title),
-		h.ul(h.list([state.items], (item) => h.li(() => `Item ${item}`))),
+		h.ul(h.list(state.items, (item) => h.li(() => `Item ${item}`))),
 	);
 
 	document.body.appendChild(div);
@@ -627,7 +627,7 @@ test("h.update called from event handler", () => {
 
 test("list item removal with splice", () => {
 	const items = [1, 2, 3, 4, 5];
-	const firstElement = h.list([items], (value) => h.div(`Item: ${value}`));
+	const firstElement = h.list(items, (value) => h.div(`Item: ${value}`));
 
 	document.body.appendChild(firstElement);
 	return waitForNextFrame().then(() => {
@@ -739,11 +739,11 @@ test("truthy values: 'false', 0, '0' are rendered", () => {
 	expect(div3.textContent).toBe("0"); // String "0" is rendered
 });
 
-test("h.list with multiple dependencies", () => {
+test("h.list with reactive items", () => {
 	const list = [1, 2, 3];
 	const state = { filter: "all" };
 	// List items need to be reactive to update when state changes
-	const firstElement = h.list([list, state], (value) =>
+	const firstElement = h.list(list, (value) =>
 		h.div([state], () => `${value} - ${state.filter}`),
 	);
 
@@ -798,7 +798,7 @@ test("list item with reactive style and attributes", () => {
 		{ id: 2, text: "Todo 2", completed: true },
 	];
 
-	const firstElement = h.list([todos], (todo) =>
+	const firstElement = h.list(todos, (todo) =>
 		h.div(
 			[todo],
 			{

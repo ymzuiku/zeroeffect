@@ -45,6 +45,12 @@ h.div([state], {
   style: () => ({ color: state.color }),
 });
 
+// No update
+h.div([], {
+  class: () => (state.active ? "active" : "inactive"),
+  style: () => ({ color: state.color }),
+});
+
 // Event handler
 h.button(
   {
@@ -67,16 +73,17 @@ h.if(
 
 // List rendering
 h.list(
-  [items, otherState], // First dep MUST be the array to render, other deps are optional
-  (item, index) => h.div([item], () => `Item: ${item}`) // Each item can have its own dependencies
+  items, // First parameter is the data list array
+  (item, index) => h.div([item], () => `Item: ${item}`) // Render function
 );
 // When items.length changes, list re-renders
 // Individual items update when their own dependencies change
 
 // Virtual list (for large datasets, 100k+ items)
 h.virtualList(
-  [items], // First dep MUST be the array to render
-  (item, index) => h.div([item], () => `Item: ${item}`),
+  items, // First parameter is the data list array
+  { class: "h-full overflow-y-auto" }, // Container attributes - REQUIRED
+  (item, index) => h.div([item], () => `Item: ${item}`), // Render function
   {
     itemHeight: 50, // Fixed height, function: (index) => number, or "auto" for dynamic height
     containerHeight: 600, // Optional, defaults to parent height
@@ -103,15 +110,15 @@ h.element(existingDiv)([state], () => state.text);
   - `condition`: Function returning truthy/falsy
   - `renderFn`: Function returning element when condition is true
   - `elseRenderFn`: Optional function returning element when condition is false (if omitted, returns hidden span)
-- `h.list(deps, renderFn)` - List rendering
-  - **First dependency MUST be the array to render** (e.g., `[items, otherState]` where `items` is the list)
-  - Other dependencies are optional and shared across all items
+- `h.list(dataList, renderFn)` - List rendering
+  - **First parameter MUST be the data list array**
   - `renderFn(value, index)`: Function that returns element for each item
   - **Each item element can have its own dependencies** (e.g., `h.div([item], ...)` makes each item reactive to its own data)
   - List re-renders when array length changes
   - Individual items update when their own dependencies change
-- `h.virtualList(deps, renderFn, options)` - Virtual list for large datasets (100k+ items)
-  - **First dependency MUST be the array to render**
+- `h.virtualList(items, attrs, renderFn, options?)` - Virtual list for large datasets (100k+ items)
+  - **First parameter MUST be the data list array**
+  - `attrs`: Container attributes (e.g., class, style) - REQUIRED
   - `renderFn(value, index)`: Function that returns element for each item
   - `options.itemHeight`: Fixed height (number), function `(index) => number`, or `"auto"` for dynamic height
   - `options.containerHeight`: Optional container height (defaults to parent)
