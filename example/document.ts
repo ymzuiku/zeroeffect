@@ -72,7 +72,7 @@ const translations = {
 	en: {
 		title: "zeroeffect Reactive DOM Library Documentation",
 		subtitle: "No Virtual DOM · No Proxy · No Signal",
-		switchLang: "中文",
+		switchLang: "Chinese",
 		gettingStarted: {
 			title: "Getting Started",
 			content:
