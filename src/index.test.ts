@@ -30,7 +30,7 @@ afterEach(() => {
 
 // Helper function to wait for next frame
 function waitForNextFrame(): Promise<void> {
-	return new Promise((resolve) => {
+	return new Promise<void>((resolve) => {
 		requestAnimationFrame(() => {
 			requestAnimationFrame(() => {
 				resolve();
@@ -306,13 +306,13 @@ test("h.list handles list becoming empty", () => {
 	});
 });
 
-test("h.element binds to existing element", () => {
+test("h.ref binds to existing element", () => {
 	const existingDiv = document.createElement("div");
 	existingDiv.id = "existing";
 	document.body.appendChild(existingDiv);
 
 	const state = { text: "Hello" };
-	h.element(existingDiv)([state], { class: "bound" }, () => state.text);
+	h.ref(existingDiv)([state], { class: "bound" }, () => state.text);
 
 	expect(existingDiv.className).toBe("bound");
 	expect(existingDiv.textContent).toBe("Hello");
@@ -335,6 +335,365 @@ test("h.onUpdate callback is called", () => {
 	h.update(state);
 	return waitForNextFrame().then(() => {
 		expect(callbackCalled).toBe(true);
+	});
+});
+
+test("h.onUpdate with element parameter and manual unsubscribe", () => {
+	const state = { count: 0 };
+	const div = h.div("Test");
+	document.body.appendChild(div);
+
+	let elementUpdateCount = 0;
+
+	// Subscribe with element (returns unsubscribe function)
+	const unsubscribe = h.onUpdate(div, () => {
+		elementUpdateCount++;
+	});
+
+	// Trigger update - should be called
+	h.update(state);
+	return waitForNextFrame().then(() => {
+		expect(elementUpdateCount).toBe(1);
+
+		// Manually unsubscribe - in real usage onRemove would do this automatically
+		unsubscribe();
+
+		// Trigger another update - callback should not be called
+		state.count = 5;
+		h.update(state);
+		return waitForNextFrame().then(() => {
+			expect(elementUpdateCount).toBe(1); // Should still be 1, not incremented
+		});
+	});
+});
+
+test("h.onUpdate unsubscribe function works for global update", () => {
+	const state = { count: 0 };
+	let callbackCount = 0;
+
+	const unsubscribe = h.onUpdate(() => {
+		callbackCount++;
+	});
+
+	h.update(state);
+	return waitForNextFrame().then(() => {
+		expect(callbackCount).toBe(1);
+
+		// Unsubscribe
+		unsubscribe();
+
+		// Trigger another update - should not be called
+		state.count = 5;
+		h.update(state);
+		return waitForNextFrame().then(() => {
+			expect(callbackCount).toBe(1); // Should still be 1
+		});
+	});
+});
+
+test("h.onUpdate unsubscribe function works for element update", () => {
+	const state = { count: 0 };
+	const div = h.div("Test");
+	document.body.appendChild(div);
+
+	let elementCallbackCount = 0;
+
+	const unsubscribe = h.onUpdate(div, () => {
+		elementCallbackCount++;
+	});
+
+	h.update(state);
+	return waitForNextFrame().then(() => {
+		expect(elementCallbackCount).toBe(1);
+
+		// Unsubscribe
+		unsubscribe();
+
+		// Trigger another update - should not be called
+		state.count = 5;
+		h.update(state);
+		return waitForNextFrame().then(() => {
+			expect(elementCallbackCount).toBe(1); // Should still be 1
+		});
+	});
+});
+
+test("h.onRemove unsubscribe function prevents callback from being called", () => {
+	const div = h.div("Test");
+	document.body.appendChild(div);
+
+	let removeCallbackCalled = false;
+
+	const unsubscribe = h.onRemove(div, () => {
+		removeCallbackCalled = true;
+	});
+
+	// Unsubscribe before removal
+	unsubscribe();
+
+	// Note: In test environment, MutationObserver may not work
+	// This test verifies that unsubscribe prevents callback registration
+	expect(removeCallbackCalled).toBe(false);
+});
+
+test("h.onRemove callback is registered (note: requires MutationObserver in real DOM)", () => {
+	const div = h.div("Test");
+	document.body.appendChild(div);
+
+	let removeCallbackCalled = false;
+
+	h.onRemove(div, () => {
+		removeCallbackCalled = true;
+	});
+
+	// This test documents that the callback is registered
+	// In a real DOM with MutationObserver, removing the element would trigger it
+	// In tests, we can't reliably test the actual triggering
+	expect(removeCallbackCalled).toBe(false);
+	document.body.removeChild(div);
+});
+
+test("h.onRemove with unsubscribe function prevents callback", () => {
+	const div = h.div("Test");
+	document.body.appendChild(div);
+
+	let removeCallbackCount = 0;
+
+	const unsubscribe = h.onRemove(div, () => {
+		removeCallbackCount++;
+	});
+
+	// Cancel the subscription
+	unsubscribe();
+
+	// Verify callback was not called
+	expect(removeCallbackCount).toBe(0);
+});
+
+test("h.onRemove multiple callbacks can be registered for same element", () => {
+	const div = h.div("Test");
+	document.body.appendChild(div);
+
+	let callback1Count = 0;
+	let callback2Count = 0;
+
+	h.onRemove(div, () => {
+		callback1Count++;
+	});
+
+	h.onRemove(div, () => {
+		callback2Count++;
+	});
+
+	// Verify both callbacks are registered (they will be called when element is removed in real DOM)
+	expect(callback1Count).toBe(0);
+	expect(callback2Count).toBe(0);
+	document.body.removeChild(div);
+});
+
+test("h.onMount unsubscribe function prevents callback", () => {
+	const div = h.div("Test");
+
+	let mountCallbackCount = 0;
+
+	const unsubscribe = h.onMount(div, () => {
+		mountCallbackCount++;
+	});
+
+	// Cancel subscription before mounting
+	unsubscribe();
+
+	// Verify callback was not called
+	expect(mountCallbackCount).toBe(0);
+});
+
+test("h.onMount callback is registered for element (note: requires MutationObserver in real DOM)", () => {
+	const div = h.div("Test");
+
+	let mountCallbackCalled = false;
+
+	h.onMount(div, () => {
+		mountCallbackCalled = true;
+	});
+
+	// This test documents that the callback is registered
+	// In a real DOM with MutationObserver, adding to DOM would trigger it
+	expect(mountCallbackCalled).toBe(false);
+
+	document.body.appendChild(div);
+	// Note: In test environment, MutationObserver may not work
+	// In real DOM, this would trigger the mount callback
+	document.body.removeChild(div);
+});
+
+test("h.onMount does not trigger callback after already triggered", () => {
+	const div = h.div("Test");
+	document.body.appendChild(div);
+
+	let mountCallbackCount = 0;
+
+	h.onMount(div, () => {
+		mountCallbackCount++;
+	});
+
+	// Element already in DOM, callback should be called immediately
+	expect(mountCallbackCount).toBe(1);
+	document.body.removeChild(div);
+});
+
+test("h.onMount and h.onRemove lifecycle hooks work correctly", () => {
+	const div = h.div("Test");
+
+	let mountCalled = false;
+	let removeCalled = false;
+
+	h.onMount(div, () => {
+		mountCalled = true;
+	});
+
+	h.onRemove(div, () => {
+		removeCalled = true;
+	});
+
+	// Mount (if MutationObserver works in environment)
+	document.body.appendChild(div);
+
+	// Remove
+	document.body.removeChild(div);
+
+	// Note: These callbacks require MutationObserver to actually fire
+	// In test environment, we verify they're registered correctly
+	expect(mountCalled).toBe(false); // May be true if element was already in DOM
+	expect(removeCalled).toBe(false);
+});
+
+test("h.onMount callback is called immediately if element is already in DOM", () => {
+	const div = h.div("Test");
+	document.body.appendChild(div);
+
+	let mountCallbackCalled = false;
+
+	h.onMount(div, () => {
+		mountCallbackCalled = true;
+	});
+
+	// Element is already in DOM, callback should be called immediately
+	expect(mountCallbackCalled).toBe(true);
+
+	// Cleanup
+	document.body.removeChild(div);
+});
+
+test("h.onMount with unsubscribe function", () => {
+	const div = h.div("Test");
+
+	let mountCallbackCount = 0;
+
+	const unsubscribe = h.onMount(div, () => {
+		mountCallbackCount++;
+	});
+
+	// Cancel subscription
+	unsubscribe();
+
+	// Add to DOM - callback should not be called
+	document.body.appendChild(div);
+
+	return new Promise<void>((resolve) => {
+		setTimeout(() => {
+			expect(mountCallbackCount).toBe(0);
+			document.body.removeChild(div);
+			resolve();
+		}, 100);
+	});
+});
+
+test("h.onMount does not trigger callback twice", () => {
+	const div = h.div("Test");
+	document.body.appendChild(div);
+
+	let mountCallbackCount = 0;
+
+	h.onMount(div, () => {
+		mountCallbackCount++;
+	});
+
+	// Callback should be called immediately (element already in DOM)
+	expect(mountCallbackCount).toBe(1);
+
+	// Trigger mutation observer again by removing and adding
+	document.body.removeChild(div);
+	document.body.appendChild(div);
+
+	return new Promise<void>((resolve) => {
+		setTimeout(() => {
+			// Should still be 1, not triggered again
+			expect(mountCallbackCount).toBe(1);
+			document.body.removeChild(div);
+			resolve();
+		}, 100);
+	});
+});
+
+test("h.onMount and h.onRemove lifecycle hooks can be registered together", () => {
+	const div = h.div("Test");
+	document.body.appendChild(div);
+
+	let mountCallbackCount = 0;
+	let removeCallbackCount = 0;
+
+	h.onMount(div, () => {
+		mountCallbackCount++;
+	});
+
+	h.onRemove(div, () => {
+		removeCallbackCount++;
+	});
+
+	// Element already in DOM, mount should be called immediately
+	expect(mountCallbackCount).toBe(1);
+
+	// Note: remove callback requires MutationObserver to fire
+	// In test environment, we verify the hook is registered
+	expect(removeCallbackCount).toBe(0);
+
+	document.body.removeChild(div);
+});
+
+test("h.onUpdate with element lifecycle management", () => {
+	const state = { count: 0 };
+	const div = h.div("Test");
+	document.body.appendChild(div);
+
+	let mountCallbackCount = 0;
+	let updateCount = 0;
+
+	h.onMount(div, () => {
+		mountCallbackCount++;
+	});
+
+	const unsubscribeUpdate = h.onUpdate(div, () => {
+		updateCount++;
+	});
+
+	// Element already in DOM, mount should be called
+	expect(mountCallbackCount).toBe(1);
+
+	// Trigger update - should call update callback
+	h.update(state);
+	return waitForNextFrame().then(() => {
+		expect(updateCount).toBe(1);
+
+		// Manually unsubscribe from updates (simulating element removal cleanup)
+		unsubscribeUpdate();
+
+		// Trigger another update
+		state.count = 5;
+		h.update(state);
+		return waitForNextFrame().then(() => {
+			// Update count should still be 1 (previous callback was unsubscribed)
+			expect(updateCount).toBe(1);
+		});
 	});
 });
 

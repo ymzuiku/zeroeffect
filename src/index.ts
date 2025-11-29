@@ -6,14 +6,14 @@ type Content =
 	| (() => string | number | HTMLElement | null | undefined | false);
 type Dependencies = unknown[];
 
-// Tag function type - supports variable arguments
+// 标签函数类型 - 支持可变参数
 type TagFunction = (
 	...args: Array<Dependencies | Attributes | Content | Content[]>
 ) => HTMLElement;
 
-// Common HTML tags for better type hints
+// 常用 HTML 标签，提供更好的类型提示
 interface HTagElements {
-	// Structural elements
+	// 结构元素
 	div: TagFunction;
 	p: TagFunction;
 	span: TagFunction;
@@ -25,7 +25,7 @@ interface HTagElements {
 	aside: TagFunction;
 	main: TagFunction;
 
-	// Text elements
+	// 文本元素
 	h1: TagFunction;
 	h2: TagFunction;
 	h3: TagFunction;
@@ -41,7 +41,7 @@ interface HTagElements {
 	pre: TagFunction;
 	blockquote: TagFunction;
 
-	// List elements
+	// 列表元素
 	ul: TagFunction;
 	ol: TagFunction;
 	li: TagFunction;
@@ -49,7 +49,7 @@ interface HTagElements {
 	dt: TagFunction;
 	dd: TagFunction;
 
-	// Form elements
+	// 表单元素
 	form: TagFunction;
 	input: TagFunction;
 	button: TagFunction;
@@ -60,7 +60,7 @@ interface HTagElements {
 	fieldset: TagFunction;
 	legend: TagFunction;
 
-	// Table elements
+	// 表格元素
 	table: TagFunction;
 	thead: TagFunction;
 	tbody: TagFunction;
@@ -70,18 +70,18 @@ interface HTagElements {
 	td: TagFunction;
 	caption: TagFunction;
 
-	// Media elements
+	// 媒体元素
 	img: TagFunction;
 	video: TagFunction;
 	audio: TagFunction;
 	canvas: TagFunction;
 	svg: TagFunction;
 
-	// Link elements
+	// 链接元素
 	a: TagFunction;
 	link: TagFunction;
 
-	// Other common elements
+	// 其他常用元素
 	br: TagFunction;
 	hr: TagFunction;
 	meta: TagFunction;
@@ -92,12 +92,12 @@ interface HTagElements {
 	embed: TagFunction;
 	object: TagFunction;
 
-	// Support dynamic access with index signature for custom tags
-	// Note: TypeScript's index signature allows undefined, but our Proxy always returns TagFunction
+	// 支持自定义标签的动态访问索引签名
+	// 注意：TypeScript 的索引签名允许 undefined，但我们的 Proxy 总是返回 TagFunction
 	[key: string]: TagFunction | undefined;
 }
 
-// Check if a value should be rendered (falsy values that don't render)
+// 检查值是否应该被渲染（不会渲染的假值）
 function shouldRender(value: unknown): boolean {
 	if (
 		value === false ||
@@ -111,7 +111,7 @@ function shouldRender(value: unknown): boolean {
 	return true;
 }
 
-// Render content to DOM nodes
+// 将内容渲染到 DOM 节点
 function renderContent(content: Content): Node[] {
 	if (typeof content === "function") {
 		const result = content();
@@ -119,7 +119,7 @@ function renderContent(content: Content): Node[] {
 			return [];
 		}
 		if (result instanceof HTMLElement) {
-			// Check if this is a list element (index 0)
+			// 检查是否为列表元素（索引 0）
 			const listIndex = result.getAttribute("data-ns-list");
 			if (listIndex === "0") {
 				insertListRemainingElements(result);
@@ -132,7 +132,7 @@ function renderContent(content: Content): Node[] {
 		return [];
 	}
 	if (content instanceof HTMLElement) {
-		// Check if this is a list element (index 0)
+		// 检查是否为列表元素（索引 0）
 		const listIndex = content.getAttribute("data-ns-list");
 		if (listIndex === "0") {
 			insertListRemainingElements(content);
@@ -142,9 +142,9 @@ function renderContent(content: Content): Node[] {
 	return [document.createTextNode(String(content))];
 }
 
-// Insert remaining list elements after the first element
+// 在第一个元素后插入剩余的列表元素
 function insertListRemainingElements(firstElement: HTMLElement): void {
-	// Find the reactive info using the WeakMap
+	// 使用 WeakMap 查找响应式信息
 	const info = listFirstElementMap.get(firstElement);
 	if (!info?.isList || !info.listElements) {
 		return;
@@ -153,9 +153,9 @@ function insertListRemainingElements(firstElement: HTMLElement): void {
 	const listElements = info.listElements;
 	const parent = firstElement.parentNode;
 
-	// If first element is not in DOM yet, schedule insertion for next frame
+	// 如果第一个元素尚未在 DOM 中，安排在下一帧插入
 	if (!parent) {
-		// Prevent duplicate scheduling
+		// 防止重复调度
 		if (!scheduledInsertions.has(firstElement)) {
 			scheduledInsertions.add(firstElement);
 			requestAnimationFrame(() => {
@@ -166,31 +166,31 @@ function insertListRemainingElements(firstElement: HTMLElement): void {
 		return;
 	}
 
-	// Insert elements in order
+	// 按顺序插入元素
 	let lastInserted = firstElement;
 	for (let i = 1; i < listElements.size; i++) {
 		const element = listElements.get(i);
 		if (element && !element.parentNode) {
-			// Insert after lastInserted
+			// 在 lastInserted 之后插入
 			parent.insertBefore(element, lastInserted.nextSibling);
 			lastInserted = element;
 		}
 	}
 }
 
-// Apply style object directly to element.style
+// 直接将样式对象应用到 element.style
 function applyStyleObject(
 	element: HTMLElement,
 	style: Record<string, string | number>,
 ): void {
 	for (const [key, value] of Object.entries(style)) {
-		// Directly set style property using JavaScript style API
-		// Use index signature to access style properties dynamically
+		// 使用 JavaScript 样式 API 直接设置样式属性
+		// 使用索引签名动态访问样式属性
 		(element.style as unknown as Record<string, string>)[key] = String(value);
 	}
 }
 
-// Apply reactive attributes to an element (called on initial render and updates)
+// 将响应式属性应用到元素（在初始渲染和更新时调用）
 function applyAttributes(
 	element: HTMLElement,
 	attrs: Attributes,
@@ -198,13 +198,13 @@ function applyAttributes(
 ): void {
 	for (const [key, value] of Object.entries(attrs)) {
 		if (key.startsWith("on") && typeof value === "function") {
-			// Event handlers - skip if skipEvents is true (already added)
+			// 事件处理器 - 如果 skipEvents 为 true 则跳过（已添加）
 			if (!skipEvents) {
 				const eventName = key.slice(2).toLowerCase();
 				element.addEventListener(eventName, value as EventListener);
 			}
 		} else if (typeof value === "function") {
-			// Reactive attribute - execute function and set result
+			// 响应式属性 - 执行函数并设置结果
 			const result = value();
 			if (key === "class" && typeof result === "string") {
 				element.className = result;
@@ -217,7 +217,7 @@ function applyAttributes(
 					!Array.isArray(result) &&
 					!(result instanceof HTMLElement)
 				) {
-					// Style object - apply directly to element.style
+					// 样式对象 - 直接应用到 element.style
 					applyStyleObject(element, result as Record<string, string | number>);
 				}
 			} else if (
@@ -226,16 +226,16 @@ function applyAttributes(
 					element instanceof HTMLTextAreaElement ||
 					element instanceof HTMLSelectElement)
 			) {
-				// For input/textarea/select elements, set value property directly
+				// 对于 input/textarea/select 元素，直接设置 value 属性
 				element.value = String(result ?? "");
 			} else if (key === "checked" && element instanceof HTMLInputElement) {
-				// For checkbox/radio inputs, set checked property
+				// 对于 checkbox/radio 输入框，设置 checked 属性
 				element.checked = Boolean(result);
 			} else {
 				element.setAttribute(key, String(result ?? ""));
 			}
 		} else {
-			// Static attribute
+			// 静态属性
 			if (key === "class" && typeof value === "string") {
 				element.className = value;
 			} else if (key === "style") {
@@ -247,7 +247,7 @@ function applyAttributes(
 					!Array.isArray(value) &&
 					!(value instanceof HTMLElement)
 				) {
-					// Style object - apply directly to element.style
+					// 样式对象 - 直接应用到 element.style
 					applyStyleObject(element, value as Record<string, string | number>);
 				}
 			} else if (
@@ -256,10 +256,10 @@ function applyAttributes(
 					element instanceof HTMLTextAreaElement ||
 					element instanceof HTMLSelectElement)
 			) {
-				// For input/textarea/select elements, set value property directly
+				// 对于 input/textarea/select 元素，直接设置 value 属性
 				element.value = String(value ?? "");
 			} else if (key === "checked" && element instanceof HTMLInputElement) {
-				// For checkbox/radio inputs, set checked property
+				// 对于 checkbox/radio 输入框，设置 checked 属性
 				element.checked = Boolean(value);
 			} else {
 				element.setAttribute(key, String(value ?? ""));
@@ -268,7 +268,7 @@ function applyAttributes(
 	}
 }
 
-// Create a reactive element
+// 创建响应式元素
 function createReactiveElement(
 	tagName: string,
 	deps: Dependencies | null,
@@ -278,10 +278,10 @@ function createReactiveElement(
 	const element = document.createElement(tagName);
 	const container = document.createDocumentFragment();
 
-	// Track this element's dependencies
+	// 跟踪此元素的依赖项
 	if (deps) {
 		for (const dep of deps) {
-			// Convert to object for Map key (objects are tracked by reference)
+			// 转换为对象作为 Map 键（对象通过引用跟踪）
 			const depKey = dep as object;
 			const existing = reactiveElements.get(depKey);
 			if (existing) {
@@ -307,21 +307,21 @@ function createReactiveElement(
 		}
 	}
 
-	// Initial render - apply all attributes including event handlers
+	// 初始渲染 - 应用所有属性包括事件处理器
 	if (attrs) {
 		applyAttributes(element, attrs);
 	}
 
 	if (content) {
 		const contents = Array.isArray(content) ? content : [content];
-		// Track list first elements that need insertion
+		// 跟踪需要插入的列表首元素
 		const listFirstElements: HTMLElement[] = [];
 
 		for (const item of contents) {
 			const nodes = renderContent(item);
 			for (const node of nodes) {
 				container.appendChild(node);
-				// Check if this is a list first element
+				// 检查是否为列表首元素
 				if (
 					node instanceof HTMLElement &&
 					node.getAttribute("data-ns-list") === "0"
@@ -332,7 +332,7 @@ function createReactiveElement(
 		}
 		element.appendChild(container);
 
-		// Insert remaining elements for all list first elements
+		// 为所有列表首元素插入剩余元素
 		for (const firstElement of listFirstElements) {
 			insertListRemainingElements(firstElement);
 		}
@@ -341,213 +341,394 @@ function createReactiveElement(
 	return element;
 }
 
-// Reactive element info
+// 响应式元素信息
 interface ReactiveElementInfo {
 	element: HTMLElement;
 	attrs: Attributes;
 	content: Content | Content[] | null;
 	tagName: string;
 	isConditional?: boolean;
-	condition?: () => unknown; // Return value doesn't need to be boolean, just truthy/falsy
+	condition?: () => unknown; // 返回值不需要是布尔值，只需真值/假值
 	renderFn?: () => HTMLElement;
-	elseRenderFn?: () => HTMLElement; // Optional else render function
-	conditionalPlaceholder?: HTMLElement; // Current placeholder element for conditional rendering
-	lastConditionValue?: unknown; // Last condition value to detect changes
+	elseRenderFn?: () => HTMLElement; // 可选的 else 渲染函数
+	conditionalPlaceholder?: HTMLElement; // 条件渲染的当前占位符元素
+	lastConditionValue?: unknown; // 检测变化的最后一个条件值
 	isList?: boolean;
-	listData?: unknown[]; // The array data (first element of deps)
-	listDeps?: unknown[]; // Other dependencies besides the list
-	listRenderFn?: (value: unknown, index: number) => HTMLElement; // Render function for list items
-	listElements?: Map<number, HTMLElement>; // Map of index to rendered element
-	listPlaceholder?: HTMLElement; // Current placeholder element for list rendering (first element or span)
+	listData?: unknown[]; // 数组数据（deps 的第一个元素）
+	listDeps?: unknown[]; // 除列表外的其他依赖项
+	listRenderFn?: (value: unknown, index: number) => HTMLElement; // 列表项的渲染函数
+	listElements?: Map<number, HTMLElement>; // 索引到渲染元素的映射
+	listPlaceholder?: HTMLElement; // 列表渲染的当前占位符元素（首元素或 span）
 	isVirtualList?: boolean;
-	virtualListUpdate?: () => void; // Update function for virtual list
+	virtualListUpdate?: () => void; // 虚拟列表的更新函数
 }
 
-// Map of dependencies to reactive elements
-// Using WeakMap with object identity for tracking
-// WeakMap automatically cleans up when state objects are garbage collected
+// 依赖项到响应式元素的映射
+// 使用 WeakMap 进行对象标识跟踪
+// 当状态对象被垃圾回收时，WeakMap 自动清理
 const reactiveElements = new WeakMap<object, Set<ReactiveElementInfo>>();
 
-// Map of list first elements to their reactive info (for inserting remaining elements)
+// 列表首元素到其响应式信息的映射（用于插入剩余元素）
 const listFirstElementMap = new WeakMap<HTMLElement, ReactiveElementInfo>();
 
-// Set to track elements that are scheduled for insertion (prevent duplicate requestAnimationFrame)
+// 用于跟踪已安排插入元素的集合（防止重复 requestAnimationFrame）
 const scheduledInsertions = new WeakSet<HTMLElement>();
 
-// Update callbacks
-const updateCallbacks: Set<() => void> = new Set();
+// 更新回调 - 使用 Map 避免内存泄漏（WeakMap 不支持 keys() 方法）
+const updateCallbacks = new Map<() => void, boolean>();
 
-// Flag to prevent infinite recursion in onUpdate callbacks
+// 防止 on 更新回调中无限递归的标志
 let isInCallback = false;
 
-// Collection of states that need to be updated
+// 跟踪元素移除回调的 WeakMap
+const removeCallbacks = new WeakMap<HTMLElement, Set<() => void>>();
+
+// 跟踪元素挂载回调的 WeakMap
+const mountCallbacks = new WeakMap<
+	HTMLElement,
+	{ callback: () => void; hasTriggered: boolean }
+>();
+
+// 检测元素移除的全局 MutationObserver
+const removalObserver = new MutationObserver((mutations) => {
+	for (const mutation of mutations) {
+		const removedNodes = Array.from(mutation.removedNodes);
+		for (const node of removedNodes) {
+			// 检查移除的节点是否是具有移除回调的 HTMLElement
+			if (node instanceof HTMLElement) {
+				const callbacks = removeCallbacks.get(node);
+				if (callbacks) {
+					// 执行此元素的所有回调
+					for (const callback of callbacks) {
+						try {
+							callback();
+						} catch (error) {
+							console.error("Error in onRemove callback:", error);
+						}
+					}
+					// 清理
+					removeCallbacks.delete(node);
+				}
+			}
+		}
+	}
+});
+
+// 检测元素挂载的全局 MutationObserver
+const mountObserver = new MutationObserver((mutations) => {
+	for (const mutation of mutations) {
+		const addedNodes = Array.from(mutation.addedNodes);
+		for (const node of addedNodes) {
+			// 检查添加的节点是否是具有挂载回调的 HTMLElement
+			if (node instanceof HTMLElement) {
+				const callbackInfo = mountCallbacks.get(node);
+				if (callbackInfo && !callbackInfo.hasTriggered) {
+					// 标记为已触发以防止重复执行
+					callbackInfo.hasTriggered = true;
+
+					try {
+						callbackInfo.callback();
+					} catch (error) {
+						console.error("Error in onMount callback:", error);
+					}
+
+					// 清理 after execution
+					mountCallbacks.delete(node);
+				}
+			}
+		}
+	}
+});
+
+// DOM 准备后开始观察
+if (document.readyState === "loading") {
+	document.addEventListener(
+		"DOMContentLoaded",
+		() => {
+			removalObserver.observe(document.body, {
+				childList: true,
+				subtree: true,
+			});
+			mountObserver.observe(document.body, {
+				childList: true,
+				subtree: true,
+			});
+		},
+		{ once: true },
+	);
+} else {
+	removalObserver.observe(document.body, {
+		childList: true,
+		subtree: true,
+	});
+	mountObserver.observe(document.body, {
+		childList: true,
+		subtree: true,
+	});
+}
+
+// 需要更新的状态集合 - 使用 Set（WeakSet 不支持 size/clear/iteration）
 const pendingUpdates = new Set<unknown>();
 
-// Flag to track if we've scheduled a batch update
+// 跟踪是否已安排批量更新的标志
 let updateScheduled = false;
 
-// Process updates for a state object
+// 处理状态对象的更新
 function processUpdate(state: unknown): void {
-	const elements = reactiveElements.get(state as object);
-	if (!elements) {
-		return;
-	}
-
-	// Process updates for valid elements and clean up stale ones in one pass
-	const staleElements: ReactiveElementInfo[] = [];
-	for (const info of elements) {
-		// Check if element is still connected to DOM
-		if (!info.element.isConnected) {
-			staleElements.push(info);
-			continue;
-		}
-		// Handle conditional rendering
-		if (info.isConditional && info.condition && info.renderFn) {
-			updateConditional(info, info.condition, info.renderFn, info.elseRenderFn);
-			continue;
+	// 只有对象才能作为 WeakMap 的键
+	if (typeof state === "object" && state !== null) {
+		const elements = reactiveElements.get(state as object);
+		if (!elements) {
+			return;
 		}
 
-		// Handle virtual list rendering
-		if (info.isVirtualList && info.virtualListUpdate) {
-			// Update virtual list data reference if state is an array
-			const currentState = virtualListInstances.get(info.element);
-			if (currentState) {
-				// If the triggered state is an array, use it as new data
-				// Otherwise keep current data
-				if (Array.isArray(state)) {
-					currentState.listData = state as unknown[];
-				}
+		// 一次处理有效元素的更新并清理过期元素
+		const staleElements: ReactiveElementInfo[] = [];
+		for (const info of elements) {
+			// 检查元素是否仍连接到 DOM
+			if (!info.element.isConnected) {
+				staleElements.push(info);
+				continue;
 			}
-			info.virtualListUpdate();
-			continue;
-		}
 
-		// Handle list rendering
-		if (
-			info.isList &&
-			info.listData &&
-			info.listRenderFn &&
-			info.listElements
-		) {
-			// Update list data from the state that triggered the update
-			// If the state is the list itself, use it; otherwise keep current list
-			const newListData = Array.isArray(state)
-				? (state as unknown[])
-				: info.listData;
-			updateList(info, newListData, info.listRenderFn, info.listElements);
-			// Update stored list data
-			info.listData = newListData;
-			continue;
-		}
-
-		// Clear existing content
-		info.element.textContent = "";
-
-		// Re-apply attributes (skip event handlers as they're already added)
-		applyAttributes(info.element, info.attrs, true);
-
-		// Re-render content
-		if (info.content) {
-			const container = document.createDocumentFragment();
-			const contents = Array.isArray(info.content)
-				? info.content
-				: [info.content];
-			for (const item of contents) {
-				const nodes = renderContent(item);
-				for (const node of nodes) {
-					container.appendChild(node);
-				}
+			// 处理条件渲染
+			if (info.isConditional && info.condition && info.renderFn) {
+				updateConditional(
+					info,
+					info.condition,
+					info.renderFn,
+					info.elseRenderFn,
+				);
+				continue;
 			}
-			info.element.appendChild(container);
-		}
-	}
 
-	// Clean up stale elements after processing
-	for (const stale of staleElements) {
-		elements.delete(stale);
+			// 处理虚拟列表渲染
+			if (info.isVirtualList && info.virtualListUpdate) {
+				// 如果状态是数组，更新虚拟列表数据引用
+				const currentState = virtualListInstances.get(info.element);
+				if (currentState) {
+					// 如果触发的状态是数组，使用它作为新数据
+					// 否则保持当前数据
+					if (Array.isArray(state)) {
+						currentState.listData = state as unknown[];
+					}
+				}
+				info.virtualListUpdate();
+				continue;
+			}
+
+			// 处理列表渲染
+			if (
+				info.isList &&
+				info.listData &&
+				info.listRenderFn &&
+				info.listElements
+			) {
+				// 从触发更新的状态更新列表数据
+				// 如果状态是列表本身，使用它；否则保持当前列表
+				const newListData = Array.isArray(state)
+					? (state as unknown[])
+					: info.listData;
+				updateList(info, newListData, info.listRenderFn, info.listElements);
+				// 更新存储的列表数据
+				info.listData = newListData;
+				continue;
+			}
+
+			// 清除现有内容
+			info.element.textContent = "";
+
+			// 重新应用属性（跳过事件处理器，因为已经添加）
+			applyAttributes(info.element, info.attrs, true);
+
+			// 重新渲染内容
+			if (info.content) {
+				const container = document.createDocumentFragment();
+				const contents = Array.isArray(info.content)
+					? info.content
+					: [info.content];
+				for (const item of contents) {
+					const nodes = renderContent(item);
+					for (const node of nodes) {
+						container.appendChild(node);
+					}
+				}
+				info.element.appendChild(container);
+			}
+		}
+
+		// 清理 stale elements after processing
+		for (const stale of staleElements) {
+			elements.delete(stale);
+		}
 	}
 }
 
-// Batch process all pending updates
+// 批量处理所有待处理的更新
 function flushUpdates(): void {
 	if (pendingUpdates.size === 0) {
 		updateScheduled = false;
 		return;
 	}
 
-	// Collect all states to update
-	const statesToUpdate = Array.from(pendingUpdates);
+	// 收集所有要更新的状态
+	const statesToUpdate: unknown[] = [];
+	for (const state of pendingUpdates) {
+		statesToUpdate.push(state);
+	}
 	pendingUpdates.clear();
 	updateScheduled = false;
 
-	// Process all updates
+	// 处理所有更新
 	for (const state of statesToUpdate) {
 		processUpdate(state);
 	}
 
-	// Trigger update callbacks
+	// 触发更新回调
 	isInCallback = true;
 	try {
-		for (const callback of updateCallbacks) {
+		for (const callback of updateCallbacks.keys()) {
 			callback();
 		}
 	} finally {
 		isInCallback = false;
 	}
 
-	// If new updates were queued during callbacks, schedule another flush
+	// 如果在回调期间排定了新更新，安排另一次刷新
 	if (pendingUpdates.size > 0) {
 		scheduleUpdate();
 	}
 }
 
-// Schedule batch update for next frame
+// 安排下一帧的批量更新
 function scheduleUpdate(): void {
 	if (updateScheduled) {
 		return;
 	}
 	updateScheduled = true;
 
-	// Use requestAnimationFrame for better performance (runs before next repaint)
+	// 使用 requestAnimationFrame 以获得更好的性能（在下次重绘前运行）
 	if (typeof requestAnimationFrame !== "undefined") {
 		requestAnimationFrame(flushUpdates);
 	} else {
-		// Fallback for environments without requestAnimationFrame
+		// 在没有 requestAnimationFrame 的环境中的后备方案
 		setTimeout(flushUpdates, 0);
 	}
 }
 
-// Update function - collects states to update and schedules batch update for next frame
+// 更新函数 - 收集要更新的状态并安排下一帧的批量更新
 function update(state: unknown): void {
-	// Add state to pending updates
+	// 将状态添加到待处理更新
 	pendingUpdates.add(state);
 
-	// If we're in a callback, don't schedule update yet
-	// The update will be processed after callbacks finish (in flushUpdates or next scheduleUpdate)
+	// 如果我们在回调中，还不要安排更新
+	// 更新将在回调完成后处理（在 flushUpdates 或下次 scheduleUpdate 中）
 	if (isInCallback) {
 		return;
 	}
 
-	// Schedule batch update for next frame
-	// This batches multiple update() calls in the same frame
+	// 安排下一帧的批量更新
+	// 这将同一帧中的多个 update() 调用批量处理
 	scheduleUpdate();
 }
 
-// On update callback
-function onUpdate(callback: () => void): void {
-	updateCallbacks.add(callback);
+// 更新回调 - 支持全局更新和元素绑定更新
+// 如果第一个参数是函数，订阅全局更新
+// 如果第一个参数是 HTMLElement，订阅更新并自动清理
+function onUpdate(callback: () => void): () => void;
+function onUpdate(element: HTMLElement, callback: () => void): () => void;
+function onUpdate(
+	param1: (() => void) | HTMLElement,
+	param2?: () => void,
+): () => void {
+	// 重载 1: onUpdate(callback)
+	if (typeof param1 === "function") {
+		updateCallbacks.set(param1, true);
+		return () => updateCallbacks.delete(param1);
+	}
+
+	// 重载 2: onUpdate(element, callback)
+	const element = param1 as HTMLElement;
+	const callback = param2 as () => void;
+
+	// 订阅全局更新
+	updateCallbacks.set(callback, true);
+	const unsubscribeGlobalUpdate = () => updateCallbacks.delete(callback);
+
+	// 元素移除时自动取消订阅
+	const unsubscribeRemove = onRemove(element, () => {
+		unsubscribeGlobalUpdate();
+	});
+
+	// 返回一个取消订阅两者的函数
+	return () => {
+		unsubscribeGlobalUpdate();
+		unsubscribeRemove();
+	};
 }
 
-// Create a tag function for a given tag name
+// 监听元素从 DOM 移除
+// 返回一个取消订阅函数
+function onRemove(element: HTMLElement, callback: () => void): () => void {
+	const callbacks = removeCallbacks.get(element) || new Set<() => void>();
+	callbacks.add(callback);
+	removeCallbacks.set(element, callbacks);
+
+	// 返回取消订阅函数
+	return () => {
+		const cbs = removeCallbacks.get(element);
+		if (cbs) {
+			cbs.delete(callback);
+			if (cbs.size === 0) {
+				removeCallbacks.delete(element);
+			}
+		}
+	};
+}
+
+// 监听元素挂载/插入 DOM
+// 元素挂载时触发一次回调，然后自动移除监听器
+// 返回一个取消订阅函数
+function onMount(element: HTMLElement, callback: () => void): () => void {
+	// 存储回调信息
+	mountCallbacks.set(element, {
+		callback,
+		hasTriggered: false,
+	});
+
+	// 如果元素已在 DOM 中，立即触发
+	if (element.isConnected) {
+		const callbackInfo = mountCallbacks.get(element);
+		if (callbackInfo && !callbackInfo.hasTriggered) {
+			callbackInfo.hasTriggered = true;
+
+			try {
+				callback();
+			} catch (error) {
+				console.error("Error in onMount callback:", error);
+			}
+
+			// 清理 immediately
+			mountCallbacks.delete(element);
+		}
+	}
+
+	// 返回取消订阅函数
+	return () => {
+		mountCallbacks.delete(element);
+	};
+}
+
+// 为给定标签名创建标签函数
 function createTagFunction(tagName: string): TagFunction {
 	return (...args) => {
-		// Determine which parameters were passed
+		// 确定传递了哪些参数
 		let deps: Dependencies | null = null;
 		let attrs: Attributes | null = null;
 		let finalContent: Content | Content[] | null = null;
 
 		if (args.length === 0) {
-			// No arguments
+			// 无参数
 			return createReactiveElement(tagName, null, null, null);
 		}
 
@@ -555,7 +736,7 @@ function createTagFunction(tagName: string): TagFunction {
 		const secondArg = args[1];
 
 		if (Array.isArray(firstArg) && firstArg.length > 0) {
-			// Check if first array is dependencies (contains objects) or content (contains HTMLElements/functions/strings)
+			// 检查第一个数组是依赖项（包含对象）还是内容（包含 HTMLElement/函数/字符串）
 			const isDependencies = firstArg.every(
 				(item) =>
 					typeof item === "object" &&
@@ -565,7 +746,7 @@ function createTagFunction(tagName: string): TagFunction {
 			);
 
 			if (isDependencies) {
-				// First param is dependencies array
+				// 第一个参数是依赖项数组
 				deps = firstArg as Dependencies;
 				if (
 					secondArg &&
@@ -574,16 +755,16 @@ function createTagFunction(tagName: string): TagFunction {
 					!(secondArg instanceof HTMLElement) &&
 					typeof secondArg !== "function"
 				) {
-					// Second param is attributes
+					// 第二个参数是属性
 					attrs = secondArg as Attributes;
-					// Remaining args are content
+					// 剩余参数是内容
 					if (args.length > 2) {
 						finalContent = args.slice(2) as Content[];
 					} else {
 						finalContent = null;
 					}
 				} else {
-					// Second param is content, remaining args are also content
+					// 第二个参数是内容，剩余参数也是内容
 					if (args.length > 1) {
 						finalContent = args.slice(1) as Content[];
 					} else {
@@ -591,7 +772,7 @@ function createTagFunction(tagName: string): TagFunction {
 					}
 				}
 			} else {
-				// First array is content (array of children)
+				// 第一个数组是内容（子元素数组）
 				finalContent = firstArg as Content[];
 			}
 		} else if (
@@ -601,16 +782,16 @@ function createTagFunction(tagName: string): TagFunction {
 			!(firstArg instanceof HTMLElement) &&
 			typeof firstArg !== "function"
 		) {
-			// First param is attributes
+			// 第一个参数是属性
 			attrs = firstArg as Attributes;
-			// Remaining args are content
+			// 剩余参数是内容
 			if (args.length > 1) {
 				finalContent = args.slice(1) as Content[];
 			} else {
 				finalContent = null;
 			}
 		} else {
-			// First param is content, all args are content (multiple children)
+			// 第一个参数是内容，所有参数都是内容（多个子元素）
 			if (args.length === 1) {
 				finalContent = firstArg as Content | Content[] | null;
 			} else {
@@ -622,25 +803,25 @@ function createTagFunction(tagName: string): TagFunction {
 	};
 }
 
-// CSS function - creates a style tag and inserts it into head
+// CSS 函数 - 创建样式标签并插入 head
 function css(styles: string): void {
 	const styleElement = document.createElement("style");
 	styleElement.textContent = styles;
 	document.head.appendChild(styleElement);
 }
 
-// innerHTML function - creates a div element and sets its innerHTML
+// innerHTML 函数 - 创建 div 元素并设置其 innerHTML
 function innerHTML(html: string): HTMLElement {
 	const div = document.createElement("div");
 	div.innerHTML = html;
 	return div;
 }
 
-// If function - conditional rendering based on a condition
-// First parameter must be an array (dependencies)
-// Second parameter must be a function (condition) - returns truthy/falsy value
-// Third parameter must be a function (render when condition is truthy)
-// Fourth parameter is optional function (render when condition is falsy)
+// If 函数 - 基于条件的条件渲染
+// 第一个参数必须是数组 (dependencies)
+// 第二个参数必须是函数（条件）- 返回真值/假值
+// 第三个参数必须是函数（条件为真时渲染）
+// 第四个参数是可选函数（条件为假时渲染）
 function ifConditional(
 	deps: Dependencies,
 	condition: () => unknown,
@@ -650,7 +831,7 @@ function ifConditional(
 	const initialElement = document.createElement("span");
 	initialElement.style.display = "none";
 
-	// Track this conditional element's dependencies
+	// 跟踪此条件元素的依赖项
 	const reactiveInfo: ReactiveElementInfo = {
 		element: initialElement,
 		attrs: {},
@@ -676,7 +857,7 @@ function ifConditional(
 	return initialElement;
 }
 
-// Update conditional rendering
+// 更新条件渲染
 function updateConditional(
 	reactiveInfo: ReactiveElementInfo,
 	condition: () => unknown,
@@ -686,18 +867,18 @@ function updateConditional(
 	const conditionResult = condition();
 	const shouldRender = Boolean(conditionResult);
 
-	// Check if condition value has changed
+	// 检查条件值是否已更改
 	if (reactiveInfo.lastConditionValue === conditionResult) {
-		// Condition value hasn't changed, no need to re-render
+		// 条件值未更改，无需重新渲染
 		return;
 	}
 
-	// Update last condition value
+	// 更新最后一个条件值
 	reactiveInfo.lastConditionValue = conditionResult;
 
 	const currentPlaceholder = reactiveInfo.conditionalPlaceholder;
 	if (!currentPlaceholder) {
-		// Initialize placeholder if not set
+		// 如果未设置则初始化占位符
 		const initialPlaceholder = document.createElement("div");
 		reactiveInfo.conditionalPlaceholder = initialPlaceholder;
 		reactiveInfo.element = initialPlaceholder;
@@ -707,7 +888,7 @@ function updateConditional(
 	const parent = currentPlaceholder.parentNode;
 
 	if (!parent) {
-		// Placeholder not in DOM yet, just update the reference
+		// 占位符尚未在 DOM 中，只更新引用
 		if (shouldRender) {
 			const newElement = renderFn();
 			reactiveInfo.conditionalPlaceholder = newElement;
@@ -717,7 +898,7 @@ function updateConditional(
 			reactiveInfo.conditionalPlaceholder = newElement;
 			reactiveInfo.element = newElement;
 		} else {
-			// Create span placeholder
+			// 创建 span 占位符
 			const spanPlaceholder = document.createElement("span");
 			spanPlaceholder.style.display = "none";
 			reactiveInfo.conditionalPlaceholder = spanPlaceholder;
@@ -727,20 +908,20 @@ function updateConditional(
 	}
 
 	if (shouldRender) {
-		// Condition is true - replace placeholder with actual element
+		// 条件为真 - 用实际元素替换占位符
 		const newElement = renderFn();
 		parent.replaceChild(newElement, currentPlaceholder);
-		// Update references - new element becomes the placeholder
+		// 更新引用 - 新元素成为占位符
 		reactiveInfo.conditionalPlaceholder = newElement;
 		reactiveInfo.element = newElement;
 	} else if (elseRenderFn) {
-		// Condition is false but has else function - replace with else element
+		// 条件为假但有 else 函数 - 用 else 元素替换
 		const newElement = elseRenderFn();
 		parent.replaceChild(newElement, currentPlaceholder);
 		reactiveInfo.conditionalPlaceholder = newElement;
 		reactiveInfo.element = newElement;
 	} else {
-		// Condition is false and no else function - replace with span placeholder
+		// 条件为假且没有 else 函数 - 用 span 占位符替换
 		const spanPlaceholder = document.createElement("span");
 		spanPlaceholder.style.display = "none";
 		parent.replaceChild(spanPlaceholder, currentPlaceholder);
@@ -749,10 +930,10 @@ function updateConditional(
 	}
 }
 
-// List function - renders a list of items with efficient diffing
-// First parameter is the data list (array)
-// Second parameter is a render function that receives (value, index)
-// Type inference: T is inferred from the dataList array
+// 列表函数 - 高效差分渲染列表项
+// 第一个参数是数据列表（数组）
+// 第二个参数是接收（value, index）的渲染函数
+// 类型推断：从 dataList 数组推断 T
 function list<T>(
 	dataList: T[],
 	renderFn: (value: T, index: number) => HTMLElement,
@@ -765,44 +946,44 @@ function list<T = unknown>(
 	dataList: T[] | unknown[],
 	renderFn: (value: T, index: number) => HTMLElement,
 ): HTMLElement {
-	// First parameter must be an array
+	// 第一个参数必须是数组
 	if (!Array.isArray(dataList)) {
-		throw new Error("h.list: First parameter must be an array");
+		throw new Error("h.list: 第一个参数必须是数组");
 	}
 
 	const listData = dataList as T[];
 	const otherDeps: unknown[] = [];
-	// Cast renderFn to match internal type signature
+	// 转换 renderFn 以匹配内部类型签名
 	const renderFnInternal = renderFn as (
 		value: unknown,
 		index: number,
 	) => HTMLElement;
 
-	// Store list elements for efficient updates
+	// 存储列表元素以进行高效更新
 	const listElements = new Map<number, HTMLElement>();
 
-	// Create initial placeholder - will be replaced by actual elements
+	// 创建初始占位符 - 将被实际元素替换
 	let initialPlaceholder: HTMLElement;
 	if (listData.length === 0) {
-		// Empty list - create hidden span
+		// 空列表 - 创建隐藏的 span
 		initialPlaceholder = document.createElement("span");
 		initialPlaceholder.style.display = "none";
 		initialPlaceholder.setAttribute("data-ns-list", "0");
 	} else {
-		// Non-empty list - use first element as placeholder
+		// 非空列表 - 使用首元素作为占位符
 		initialPlaceholder = renderFnInternal(listData[0], 0);
 		initialPlaceholder.setAttribute("data-ns-list", "0");
-		// Store first element
+		// 存储首元素
 		listElements.set(0, initialPlaceholder);
-		// Render remaining elements and store them
-		// They will be inserted when the first element is processed by renderContent
+		// 渲染剩余元素并存储它们
+		// 它们将在第一个元素被 renderContent 处理时插入
 		for (let i = 1; i < listData.length; i++) {
 			const element = renderFnInternal(listData[i], i);
 			listElements.set(i, element);
 		}
 	}
 
-	// Track dependencies (both list and other deps)
+	// 跟踪依赖项（列表和其他 deps）
 	const allDeps = [listData, ...otherDeps];
 	const reactiveInfo: ReactiveElementInfo = {
 		element: initialPlaceholder,
@@ -817,7 +998,7 @@ function list<T = unknown>(
 		listPlaceholder: initialPlaceholder,
 	};
 
-	// Store mapping from first element to reactive info
+	// 存储从首元素到响应式信息的映射
 	if (listData.length > 0) {
 		listFirstElementMap.set(initialPlaceholder, reactiveInfo);
 	}
@@ -835,8 +1016,8 @@ function list<T = unknown>(
 	return initialPlaceholder;
 }
 
-// Update list rendering - only manages length changes for best performance
-// When length changes, re-sync the entire list to ensure correctness
+// 更新列表渲染 - 仅管理长度变化以获得最佳性能
+// 当长度变化时，重新同步整个列表以确保正确性
 function updateList(
 	reactiveInfo: ReactiveElementInfo,
 	newListData: unknown[],
@@ -845,7 +1026,7 @@ function updateList(
 ): void {
 	const currentPlaceholder = reactiveInfo.listPlaceholder;
 	if (!currentPlaceholder) {
-		// Initialize if not set
+		// 如果未设置则初始化
 		if (newListData.length === 0) {
 			const spanPlaceholder = document.createElement("span");
 			spanPlaceholder.style.display = "none";
@@ -856,7 +1037,7 @@ function updateList(
 			const firstElement = renderFn(newListData[0], 0);
 			firstElement.setAttribute("data-ns-list", "0");
 			listElements.set(0, firstElement);
-			// Render remaining elements
+			// 渲染剩余元素
 			let lastInserted = firstElement;
 			for (let i = 1; i < newListData.length; i++) {
 				const element = renderFn(newListData[i], i);
@@ -878,21 +1059,21 @@ function updateList(
 	const currentLength = listElements.size;
 	const newLength = newListData.length;
 
-	// Only update if length changed
+	// 仅在长度更改时更新
 	if (newLength !== currentLength) {
 		const parent = currentPlaceholder.parentNode;
 
 		if (newLength === 0) {
-			// List became empty - replace with span placeholder
+			// 列表变为空 - 用 span 占位符替换
 			const spanPlaceholder = document.createElement("span");
 			spanPlaceholder.style.display = "none";
 			spanPlaceholder.setAttribute("data-ns-list", "0");
 
 			if (parent) {
-				// First, collect other list elements to remove (excluding currentPlaceholder)
+				// 首先，收集要移除的其他列表元素（不包括 currentPlaceholder）
 				const elementsToRemove: HTMLElement[] = [];
 
-				// Remove all elements that are in the listElements map (except currentPlaceholder)
+				// 移除所有在 listElements map 中的元素（除 currentPlaceholder）
 				for (let i = 1; i < currentLength; i++) {
 					const listElement = listElements.get(i);
 					if (listElement && listElement.parentNode === parent) {
@@ -900,19 +1081,19 @@ function updateList(
 					}
 				}
 
-				// Remove other list elements first
+				// 首先移除其他列表元素
 				for (const elem of elementsToRemove) {
 					if (elem.parentNode === parent) {
 						parent.removeChild(elem);
 					}
 				}
 
-				// Then replace currentPlaceholder with span placeholder
-				// Check if currentPlaceholder is still in DOM before replacing
+				// 然后用 span 占位符替换 currentPlaceholder
+				// 替换前检查 currentPlaceholder 是否仍在 DOM 中
 				if (currentPlaceholder.parentNode === parent) {
 					parent.replaceChild(spanPlaceholder, currentPlaceholder);
 				} else {
-					// If currentPlaceholder was already removed, just append the span
+					// 如果 currentPlaceholder 已被移除，只追加 span
 					parent.appendChild(spanPlaceholder);
 				}
 			}
@@ -921,14 +1102,14 @@ function updateList(
 			reactiveInfo.listPlaceholder = spanPlaceholder;
 			reactiveInfo.element = spanPlaceholder;
 		} else if (currentLength === 0) {
-			// List was empty, now has items - replace span with first element
+			// 列表为空，现在有项目 - 用首元素替换 span
 			const firstElement = renderFn(newListData[0], 0);
 			firstElement.setAttribute("data-ns-list", "0");
 			listElements.set(0, firstElement);
 
 			if (parent) {
 				parent.replaceChild(firstElement, currentPlaceholder);
-				// Insert remaining elements after first element
+				// 在首元素后插入剩余元素
 				let lastInserted = firstElement;
 				for (let i = 1; i < newLength; i++) {
 					const element = renderFn(newListData[i], i);
@@ -937,7 +1118,7 @@ function updateList(
 					lastInserted = element;
 				}
 			} else {
-				// Not in DOM yet, just store references
+				// 尚未在 DOM 中，只存储引用
 				for (let i = 1; i < newLength; i++) {
 					const element = renderFn(newListData[i], i);
 					listElements.set(i, element);
@@ -947,11 +1128,11 @@ function updateList(
 			reactiveInfo.listPlaceholder = firstElement;
 			reactiveInfo.element = firstElement;
 		} else if (newLength > currentLength) {
-			// List length increased - only add new items, don't re-render existing ones
-			// Find the last existing element to insert after it
+			// 列表长度增加 - 只添加新项目，不重新渲染现有项目
+			// 找到要插入其后的最后一个现有元素
 			let lastInserted: HTMLElement | null = null;
 			if (parent) {
-				// Find the last list element that exists in DOM
+				// 找到 DOM 中存在的最后一个列表元素
 				for (let i = currentLength - 1; i >= 0; i--) {
 					const listElement = listElements.get(i);
 					if (listElement && listElement.parentNode === parent) {
@@ -961,7 +1142,7 @@ function updateList(
 				}
 			}
 
-			// Only render and insert new items (from currentLength to newLength-1)
+			// 仅渲染和插入新项目（从 currentLength 到 newLength-1）
 			for (let i = currentLength; i < newLength; i++) {
 				const element = renderFn(newListData[i], i);
 				listElements.set(i, element);
@@ -969,18 +1150,18 @@ function updateList(
 					parent.insertBefore(element, lastInserted.nextSibling);
 					lastInserted = element;
 				} else if (parent && !lastInserted) {
-					// If no lastInserted found, insert after currentPlaceholder
+					// 如果没有找到 lastInserted，在 currentPlaceholder 后插入
 					parent.insertBefore(element, currentPlaceholder.nextSibling);
 					lastInserted = element;
 				}
 			}
 		} else {
-			// List length decreased - re-render all items (keep existing logic)
-			// Save the insertion point before removing elements
-			// We need to find the node after the LAST list element, not the first one
+			// 列表长度减少 - 重新渲染所有项目（保持现有逻辑）
+			// 移除元素前保存插入点
+			// 我们需要找到最后一个列表元素之后的节点，而不是第一个
 			let insertBeforeNode: Node | null = null;
 			if (parent && currentPlaceholder.parentNode === parent) {
-				// Find the last list element to get the correct insertion point
+				// 找到最后一个列表元素以获得正确的插入点
 				let lastListElement: HTMLElement | null = null;
 				for (let i = currentLength - 1; i >= 0; i--) {
 					const listElement = listElements.get(i);
@@ -989,8 +1170,8 @@ function updateList(
 						break;
 					}
 				}
-				// If we found the last element, use its nextSibling
-				// Otherwise, fall back to currentPlaceholder.nextSibling
+				// 如果我们找到最后一个元素，使用其 nextSibling
+				// 否则，回退到 currentPlaceholder.nextSibling
 				if (lastListElement) {
 					insertBeforeNode = lastListElement.nextSibling;
 				} else {
@@ -998,11 +1179,11 @@ function updateList(
 				}
 			}
 
-			// Remove only existing list elements (those in listElements map)
+			// 仅移除现有的列表元素（在 listElements map 中）
 			if (parent) {
 				const elementsToRemove: HTMLElement[] = [];
 
-				// Collect all list elements that need to be removed
+				// 收集所有需要移除的列表元素
 				for (let i = 0; i < currentLength; i++) {
 					const listElement = listElements.get(i);
 					if (listElement && listElement.parentNode === parent) {
@@ -1010,7 +1191,7 @@ function updateList(
 					}
 				}
 
-				// Remove all collected elements
+				// 移除所有收集的元素
 				for (const elem of elementsToRemove) {
 					if (elem.parentNode === parent) {
 						parent.removeChild(elem);
@@ -1020,27 +1201,27 @@ function updateList(
 
 			listElements.clear();
 
-			// Re-render all items
+			// 重新渲染所有项目
 			const firstElement = renderFn(newListData[0], 0);
 			firstElement.setAttribute("data-ns-list", "0");
 			listElements.set(0, firstElement);
 
 			if (parent) {
-				// Insert at the original position, not at the end
-				// Verify insertBeforeNode is still a child of parent before using it
+				// 在原始位置插入，而不是末尾
+				// 使用前验证 insertBeforeNode 是否仍是父级的子元素
 				if (insertBeforeNode && insertBeforeNode.parentNode === parent) {
 					parent.insertBefore(firstElement, insertBeforeNode);
 				} else if (insertBeforeNode === null) {
-					// If insertBeforeNode is null, it means the list was at the end
+					// 如果 insertBeforeNode 为空，意味着列表在末尾
 					parent.appendChild(firstElement);
 				} else {
-					// insertBeforeNode exists but is no longer a child of parent
-					// This shouldn't happen, but fallback to appendChild
+					// insertBeforeNode 存在但不再是父级的子元素
+					// 这不应该发生，但回退到 appendChild
 					parent.appendChild(firstElement);
 				}
 			}
 
-			// Insert remaining elements in order
+			// 按顺序插入剩余元素
 			let lastInserted = firstElement;
 			for (let i = 1; i < newLength; i++) {
 				const element = renderFn(newListData[i], i);
@@ -1055,22 +1236,22 @@ function updateList(
 			reactiveInfo.element = firstElement;
 		}
 	}
-	// If lengths are equal, no changes needed - individual items will update via their own dependencies
+	// 如果长度相等，则无需更改 - 单个项目将通过其自己的依赖项更新
 }
 
-// Element function - bind reactive properties and dependencies to an existing element
-function element(existingElement: HTMLElement): TagFunction {
+// ref 函数 - 将响应式属性和依赖项绑定到现有元素
+function ref(existingElement: HTMLElement): TagFunction {
 	return (
 		...args: Array<Dependencies | Attributes | Content | Content[]>
 	): HTMLElement => {
-		// Parse arguments (same as createTagFunction)
+		// 解析参数（与 createTagFunction 相同）
 		let deps: Dependencies | null = null;
 		let attrs: Attributes | null = null;
 		let content: Content | Content[] | null = null;
 
 		for (const arg of args) {
 			if (Array.isArray(arg) && arg.length > 0) {
-				// Check if it's a dependencies array (first element is an object/array)
+				// 检查是否为依赖项数组（第一个元素是对象/数组）
 				const firstItem = arg[0];
 				if (
 					typeof firstItem === "object" &&
@@ -1099,7 +1280,7 @@ function element(existingElement: HTMLElement): TagFunction {
 			}
 		}
 
-		// Track this element's dependencies (same as createReactiveElement)
+		// 跟踪此元素的依赖项 (same as createReactiveElement)
 		if (deps) {
 			for (const dep of deps) {
 				const depKey = dep as object;
@@ -1127,14 +1308,14 @@ function element(existingElement: HTMLElement): TagFunction {
 			}
 		}
 
-		// Apply attributes (including event handlers)
+		// 应用属性（包括事件处理器）
 		if (attrs) {
 			applyAttributes(existingElement, attrs);
 		}
 
-		// Apply content (replace existing content)
+		// 应用内容（替换现有内容）
 		if (content !== null) {
-			// Clear existing content
+			// 清除现有内容
 			existingElement.textContent = "";
 			const container = document.createDocumentFragment();
 			const contents = Array.isArray(content) ? content : [content];
@@ -1151,15 +1332,15 @@ function element(existingElement: HTMLElement): TagFunction {
 	};
 }
 
-// Virtual list types and function
+// 虚拟列表类型和函数
 type VirtualListOptions = {
 	/** Item height (fixed number), function to get height, or "auto" for dynamic height measurement */
 	itemHeight: number | ((index: number) => number) | "auto";
-	/** Container height, defaults to parent height */
+	/** 容器高度，默认为父级高度 */
 	containerHeight?: number;
 	/** Number of items to render outside viewport (before and after), default 6 */
 	overscan?: number;
-	/** Scroll container element, uses returned container if not provided */
+	/** 滚动容器元素，如果未提供则使用返回的容器 */
 	scrollContainer?: HTMLElement;
 	/** Estimated initial height for dynamic height mode (for first render), default 150 */
 	estimatedItemHeight?: number;
@@ -1179,11 +1360,11 @@ type VirtualListState = {
 	options: VirtualListOptions;
 	contentContainer: HTMLElement;
 	rafId: number | null;
-	itemHeights: Map<number, number>; // Cache actual height of each item (for dynamic height mode)
-	estimatedHeight: number; // Estimated height (for unmeasured items)
+	itemHeights: Map<number, number>; // 缓存每个项目的实际高度（用于动态高度模式）
+	estimatedHeight: number; // 估计高度（用于未测量的项目）
 };
 
-// Store virtual list instances for updates
+// 存储虚拟列表实例以进行更新
 const virtualListInstances = new WeakMap<HTMLElement, VirtualListState>();
 
 function virtualList<T>(
@@ -1204,9 +1385,9 @@ function virtualList<T = unknown>(
 	renderFn: (value: T, index: number) => HTMLElement,
 	options?: VirtualListOptions,
 ): HTMLElement {
-	// Validate first parameter must be an array
+	// 验证第一个参数必须是数组
 	if (!Array.isArray(items)) {
-		throw new Error("h.virtualList: First parameter must be an array");
+		throw new Error("h.virtualList: 第一个参数必须是数组");
 	}
 
 	const listData = items as T[];
@@ -1216,9 +1397,9 @@ function virtualList<T = unknown>(
 		index: number,
 	) => HTMLElement;
 
-	// attrs parameter must be passed, used to set container div attributes
+	// 必须传递 attrs 参数，用于设置容器 div 属性
 
-	// Configuration options (provide default values)
+	// 配置选项（提供默认值）
 	const {
 		itemHeight = "auto",
 		containerHeight: initialContainerHeight,
@@ -1227,13 +1408,13 @@ function virtualList<T = unknown>(
 		estimatedItemHeight = 150,
 	} = options || {};
 
-	// Determine if it's dynamic height mode
+	// 确定是否是动态高度模式
 	const isDynamicHeight = itemHeight === "auto";
 
-	// Function to calculate item height
+	// 计算项目高度的函数
 	const getItemHeight = (index: number, useCache = true): number => {
 		if (isDynamicHeight) {
-			// Dynamic height mode: prioritize cache, otherwise use estimated height
+			// 动态高度模式：优先使用缓存，否则使用估计高度
 			if (useCache && state.itemHeights.has(index)) {
 				const cachedHeight = state.itemHeights.get(index);
 				if (cachedHeight !== undefined) {
@@ -1248,10 +1429,10 @@ function virtualList<T = unknown>(
 		return itemHeight;
 	};
 
-	// Calculate total height
+	// 计算总高度
 	const calculateTotalHeight = (data: unknown[]): number => {
 		if (isDynamicHeight) {
-			// Dynamic height mode: use cached height + estimated height
+			// 动态高度模式：使用缓存高度 + 估计高度
 			let total = 0;
 			for (let i = 0; i < data.length; i++) {
 				total += getItemHeight(i);
@@ -1268,7 +1449,7 @@ function virtualList<T = unknown>(
 		return data.length * itemHeight;
 	};
 
-	// Calculate offset for each item
+	// 计算每个项目的偏移量
 	const getItemOffset = (index: number, _data: unknown[]): number => {
 		if (isDynamicHeight || typeof itemHeight === "function") {
 			let offset = 0;
@@ -1280,17 +1461,17 @@ function virtualList<T = unknown>(
 		return index * itemHeight;
 	};
 
-	// Ensure options is not null
+	// 确保选项不为空
 	const finalOptions = options || {
 		itemHeight: "auto",
 		overscan: 6,
 		estimatedItemHeight: 150,
 	};
 
-	// State
+	// 状态
 	const state: VirtualListState = {
 		scrollTop: 0,
-		// Initial height is 0, waiting for parent container height detection
+		// 初始高度为 0，等待父级容器高度检测
 		containerHeight: initialContainerHeight || 0,
 		totalHeight: 0,
 		startIndex: 0,
@@ -1307,41 +1488,41 @@ function virtualList<T = unknown>(
 		estimatedHeight: estimatedItemHeight,
 	};
 
-	// Create container
+	// 创建容器
 	const container = document.createElement("div");
 	container.style.position = "relative";
 	container.style.overflow = "auto";
 
-	// Apply user-provided attrs
+	// 应用用户提供的 attrs
 	applyAttributes(container, attrs);
 
 	if (initialContainerHeight) {
 		container.style.height = `${initialContainerHeight}px`;
 	}
 
-	// Create content container
+	// 创建内容容器
 	const contentContainer = document.createElement("div");
 	contentContainer.style.position = "relative";
 	container.appendChild(contentContainer);
 
-	// Calculate max height limit (2x screen height)
+	// 计算最大高度限制（屏幕高度的 2 倍）
 	const maxHeight = typeof window !== "undefined" ? window.innerHeight * 2 : 0;
 
-	// Throttler: detect height during scroll
+	// 节流器：在滚动期间检测高度
 	let resizeThrottleId: number | null = null;
 	const throttledHeightCheck = () => {
 		if (resizeThrottleId === null) {
 			resizeThrottleId = requestAnimationFrame(() => {
 				resizeThrottleId = null;
-				// Detect container height changes
+				// 检测容器高度变化
 				const currentHeight = container.offsetHeight;
 				if (currentHeight > 0) {
-					// Limit height to no more than 2x screen height
+					// 限制高度不超过屏幕高度的 2 倍
 					const newHeight = Math.min(currentHeight, maxHeight);
 					if (newHeight !== state.containerHeight) {
 						state.containerHeight = newHeight;
 						container.style.height = `${newHeight}px`;
-						// Re-render visible items
+						// 重新渲染可见项目
 						renderVisibleItems(state.listData);
 					}
 				}
@@ -1349,31 +1530,31 @@ function virtualList<T = unknown>(
 		}
 	};
 
-	// Height detection function: wait for container to be ready
+	// 高度检测函数：等待容器准备就绪
 	const checkContainerHeight = (): void => {
-		// First try to read the container's own offsetHeight
+		// 首先尝试读取容器自己的 offsetHeight
 		const containerOffsetHeight = container.offsetHeight;
 
 		if (initialContainerHeight) {
-			// If initial height is set, use it directly
+			// 如果设置了初始高度，直接使用
 			state.containerHeight = initialContainerHeight;
 			container.style.height = `${initialContainerHeight}px`;
 		} else if (containerOffsetHeight > 0) {
-			// If container has a clear height, use it
+			// 如果容器有明确高度，使用它
 			const newHeight = Math.min(containerOffsetHeight, maxHeight);
 			if (newHeight !== state.containerHeight) {
 				state.containerHeight = newHeight;
 				container.style.height = `${newHeight}px`;
 			}
 		} else {
-			// Container has no height, try reading parent container height
+			// 容器没有高度，尝试读取父级容器高度
 			const parentHeight = container.parentElement?.clientHeight || 0;
 			if (parentHeight === 0) {
-				// Parent container doesn't have height yet, continue waiting for next frame
+				// 父级容器还没有高度，继续等待下一帧
 				requestAnimationFrame(checkContainerHeight);
 				return;
 			}
-			// Limit height to no more than 2x screen height
+			// 限制高度不超过屏幕高度的 2 倍
 			const newHeight = Math.min(parentHeight, maxHeight);
 			if (newHeight !== state.containerHeight) {
 				state.containerHeight = newHeight;
@@ -1381,14 +1562,14 @@ function virtualList<T = unknown>(
 			}
 		}
 
-		// Initial render
+		// 初始渲染
 		renderVisibleItems(state.listData);
 	};
 
-	// Set content container to state
+	// 将内容容器设置到状态
 	state.contentContainer = contentContainer;
 
-	// Calculate visible range
+	// 计算可见范围
 	const calculateVisibleRange = (
 		data: unknown[],
 	): { start: number; end: number } => {
@@ -1404,9 +1585,9 @@ function virtualList<T = unknown>(
 		let start = 0;
 		let end = data.length - 1;
 
-		// Binary search for start index
+		// 二进制搜索起始索引
 		if (isDynamicHeight || typeof itemHeight === "function") {
-			// Variable height: use binary search
+			// 可变高度：使用二进制搜索
 			let low = 0;
 			let high = data.length - 1;
 			while (low <= high) {
@@ -1421,7 +1602,7 @@ function virtualList<T = unknown>(
 			}
 			start = low;
 
-			// Find end index
+			// 查找结束索引
 			low = start;
 			high = data.length - 1;
 			while (low <= high) {
@@ -1435,25 +1616,25 @@ function virtualList<T = unknown>(
 			}
 			end = high;
 		} else {
-			// Fixed height: direct calculation
+			// 固定高度：直接计算
 			start = Math.floor(viewportTop / itemHeight);
 			end = Math.min(Math.ceil(viewportBottom / itemHeight), data.length - 1);
 		}
 
-		// Apply overscan
+		// 应用overscan
 		start = Math.max(0, start - overscan);
 		end = Math.min(data.length - 1, end + overscan);
 
 		return { start, end };
 	};
 
-	// Render visible items
+	// 渲染可见项目
 	const renderVisibleItems = (data: unknown[]): void => {
 		const { start, end } = calculateVisibleRange(data);
 		state.startIndex = start;
 		state.endIndex = end;
 
-		// Remove old visible items
+		// 移除旧的可见项目
 		for (const item of state.visibleItems) {
 			if (item.parentNode === contentContainer) {
 				contentContainer.removeChild(item);
@@ -1461,7 +1642,7 @@ function virtualList<T = unknown>(
 		}
 		state.visibleItems = [];
 
-		// Create top spacer
+		// 创建顶部间距
 		if (start > 0) {
 			const topOffset = getItemOffset(start, data);
 			if (!state.spacerTop) {
@@ -1478,7 +1659,7 @@ function virtualList<T = unknown>(
 			state.spacerTop = null;
 		}
 
-		// Render visible items
+		// 渲染可见项目
 		for (let i = start; i <= end; i++) {
 			const item = renderFnInternal(data[i], i);
 			item.style.position = "absolute";
@@ -1489,9 +1670,9 @@ function virtualList<T = unknown>(
 			state.visibleItems.push(item);
 		}
 
-		// Dynamic height mode: measure and cache actual height
+		// 动态 height 模式：测量并缓存实际高度
 		if (isDynamicHeight && state.visibleItems.length > 0) {
-			// Use requestAnimationFrame to ensure DOM is rendered
+			// 使用 requestAnimationFrame 确保 DOM 被渲染
 			requestAnimationFrame(() => {
 				let needsUpdate = false;
 				const currentStart = state.startIndex;
@@ -1505,14 +1686,14 @@ function virtualList<T = unknown>(
 						const oldHeight =
 							state.itemHeights.get(actualIndex) || state.estimatedHeight;
 						if (Math.abs(measuredHeight - oldHeight) > 1) {
-							// Height changed, update cache
+							// 高度已更改，更新缓存
 							state.itemHeights.set(actualIndex, measuredHeight);
 							needsUpdate = true;
 						}
 					}
 				}
 
-				// Update estimated height (using average of measured items)
+				// 更新估计高度（使用测量项目的平均值）
 				if (needsUpdate && state.itemHeights.size > 0) {
 					let sum = 0;
 					let count = 0;
@@ -1522,11 +1703,11 @@ function virtualList<T = unknown>(
 					}
 					state.estimatedHeight = Math.round(sum / count);
 
-					// Recalculate total height and update layout
+					// 重新计算总高度并更新布局
 					state.totalHeight = calculateTotalHeight(data);
 					contentContainer.style.height = `${state.totalHeight}px`;
 
-					// Update positions of all visible items
+					// 更新所有可见项目的位置
 					for (let idx = 0; idx < state.visibleItems.length; idx++) {
 						const item = state.visibleItems[idx];
 						if (!item) continue;
@@ -1534,7 +1715,7 @@ function virtualList<T = unknown>(
 						item.style.top = `${getItemOffset(actualIndex, data)}px`;
 					}
 
-					// Update spacers
+					// 更新间距
 					if (currentStart > 0 && state.spacerTop) {
 						state.spacerTop.style.height = `${getItemOffset(currentStart, data)}px`;
 					}
@@ -1548,7 +1729,7 @@ function virtualList<T = unknown>(
 			});
 		}
 
-		// Create bottom spacer
+		// 创建底部间距
 		const bottomOffset =
 			getItemOffset(data.length, data) - getItemOffset(end + 1, data);
 		if (bottomOffset > 0) {
@@ -1567,17 +1748,17 @@ function virtualList<T = unknown>(
 			state.spacerBottom = null;
 		}
 
-		// Update total height of content container
+		// 更新内容容器的总高度
 		state.totalHeight = calculateTotalHeight(data);
 		contentContainer.style.height = `${state.totalHeight}px`;
 	};
 
-	// Handle scroll
+	// 处理滚动
 	const handleScroll = (): void => {
 		const scrollContainer = externalScrollContainer || container;
 		state.scrollTop = scrollContainer.scrollTop;
 
-		// Check height changes during scroll
+		// 在滚动期间检查高度
 		throttledHeightCheck();
 
 		if (state.rafId === null) {
@@ -1588,10 +1769,10 @@ function virtualList<T = unknown>(
 		}
 	};
 
-	// Update function (called when data changes)
+	// 更新函数（数据更改时调用）
 	const updateVirtualList = (newData: unknown[]): void => {
 		state.listData = newData;
-		// Dynamic height mode: clear no-longer-existing height cache
+		// 动态高度模式：清除不再存在的高度缓存
 		if (isDynamicHeight) {
 			const newLength = newData.length;
 			for (const index of state.itemHeights.keys()) {
@@ -1605,27 +1786,27 @@ function virtualList<T = unknown>(
 		renderVisibleItems(newData);
 	};
 
-	// Initialize
+	// 初始化
 	const init = (): void => {
-		// Set total height
+		// 设置总高度
 		state.totalHeight = calculateTotalHeight(listData as unknown[]);
 		contentContainer.style.height = `${state.totalHeight}px`;
 
-		// Add scroll listener
+		// 添加滚动监听器
 		const scrollContainer = externalScrollContainer || container;
 		scrollContainer.addEventListener("scroll", handleScroll, { passive: true });
 
-		// Start detecting container height (wait for parent to be ready)
+		// 开始检测容器高度（等待父级准备就绪）
 		checkContainerHeight();
 	};
 
-	// Initialize
+	// 初始化
 	init();
 
-	// Store state for updates
+	// 存储状态以进行更新
 	virtualListInstances.set(container, state);
 
-	// Register to reactive system, update when data array changes
+	// 注册到响应式系统，数据数组更改时更新
 	for (const dep of [listData, ...otherDeps]) {
 		const depKey = dep as object;
 		const existing = reactiveElements.get(depKey);
@@ -1668,20 +1849,22 @@ function virtualList<T = unknown>(
 	return container;
 }
 
-// Whitelist of methods that should NOT be tag functions
+// 不应是标签函数的方法白名单
 const WHITELIST = new Set([
 	"update",
 	"onUpdate",
+	"onRemove",
+	"onMount",
 	"watch",
 	"list",
 	"if",
 	"css",
 	"innerHTML",
-	"element",
+	"ref",
 	"virtualList",
 ]);
 
-// Proxy handler for dynamic tag access
+// 动态标签访问的代理处理器
 const handler: ProxyHandler<HObject> = {
 	get(
 		target,
@@ -1690,11 +1873,13 @@ const handler: ProxyHandler<HObject> = {
 		| TagFunction
 		| typeof update
 		| typeof onUpdate
+		| typeof onRemove
+		| typeof onMount
 		| typeof css
 		| typeof innerHTML
 		| typeof ifConditional
 		| typeof list
-		| typeof element
+		| typeof ref
 		| typeof virtualList {
 		if (WHITELIST.has(prop)) {
 			if (prop === "update") {
@@ -1702,6 +1887,12 @@ const handler: ProxyHandler<HObject> = {
 			}
 			if (prop === "onUpdate") {
 				return onUpdate;
+			}
+			if (prop === "onRemove") {
+				return onRemove;
+			}
+			if (prop === "onMount") {
+				return onMount;
 			}
 			if (prop === "css") {
 				return css;
@@ -1715,79 +1906,87 @@ const handler: ProxyHandler<HObject> = {
 			if (prop === "list") {
 				return list;
 			}
-			if (prop === "element") {
-				return element;
+			if (prop === "ref") {
+				return ref;
 			}
 			if (prop === "virtualList") {
 				return virtualList;
 			}
-			// For watch - return no-op functions for now
+			// 对于 watch - 目前返回无操作函数
 			return (() => {}) as TagFunction;
 		}
-		// Create tag function on demand
+		// 按需创建标签函数
 		if (!target[prop]) {
 			target[prop] = createTagFunction(prop);
 		}
-		// Always return TagFunction for tag names
+		// 始终为标签名返回 TagFunction
 		return target[prop] as TagFunction;
 	},
 };
 
-// H object interface with all methods and tag functions
-// Use intersection type to allow special methods to override index signature
-// Record<string, TagFunction> ensures all string keys return TagFunction
+// 具有所有方法和标签函数的 H 对象接口
+// 使用交叉类型允许特殊方法覆盖索引签名
+// Record<string, TagFunction> 确保所有字符串键返回 TagFunction
 type HObject = {
-	// Special methods (these have specific types)
+	// 特殊方法（这些具有特定类型）
 	update: typeof update;
 	onUpdate: typeof onUpdate;
+	onRemove: typeof onRemove;
+	onMount: typeof onMount;
 	css: typeof css;
 	innerHTML: typeof innerHTML;
 	if: typeof ifConditional;
 	list: typeof list;
-	element: typeof element;
+	ref: typeof ref;
 	virtualList: typeof virtualList;
 } & HTagElements & {
-		// Index signature for dynamic tags - always returns TagFunction via Proxy
+		// 动态标签的索引签名 - 始终通过 Proxy 返回 TagFunction
 		[key: string]:
 			| TagFunction
 			| typeof update
 			| typeof onUpdate
+			| typeof onRemove
+			| typeof onMount
 			| typeof css
 			| typeof innerHTML
 			| typeof ifConditional
 			| typeof list
-			| typeof element
+			| typeof ref
 			| typeof virtualList;
 	};
 
-// Create the h object with proxy
+// 使用代理创建 h 对象
 const _h = new Proxy<HObject>({} as HObject, handler);
 
-// Export type that handles noUncheckedIndexedAccess
-// We need to explicitly define the type to override the index signature behavior
-// The key is to use a type that doesn't have the noUncheckedIndexedAccess behavior
+// 处理 noUncheckedIndexedAccess 的导出类型
+// 我们需要显式定义类型以覆盖索引签名行为
+// 关键是使用没有 noUncheckedIndexedAccess 行为的类型
 type HExport = {
-	// Special methods
+	// 特殊方法
 	update: typeof update;
 	onUpdate: typeof onUpdate;
+	onRemove: typeof onRemove;
+	onMount: typeof onMount;
 	css: typeof css;
 	innerHTML: typeof innerHTML;
 	if: typeof ifConditional;
 	list: typeof list;
-	element: typeof element;
+	ref: typeof ref;
 	virtualList: typeof virtualList;
 } & HTagElements & {
-		// Index signature that explicitly returns TagFunction (not TagFunction | undefined)
-		// This overrides the default behavior from noUncheckedIndexedAccess
+		// 明确返回 TagFunction 的索引签名（不是 TagFunction | undefined）
+		// 这覆盖了来自 noUncheckedIndexedAccess 的默认行为
 		[key: string]:
 			| TagFunction
 			| typeof update
 			| typeof onUpdate
+			| typeof onRemove
+			| typeof onMount
 			| typeof css
 			| typeof innerHTML
 			| typeof ifConditional
 			| typeof list
-			| typeof element
+			| typeof ref
 			| typeof virtualList;
 	};
 

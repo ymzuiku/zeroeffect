@@ -1,6 +1,6 @@
 {
   "name": "zeroeffect",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "A reactive DOM library with no Signal, no Proxy, no Virtual DOM. Just plain JavaScript objects.",
   "type": "module",
   "main": "./src/index.ts",
@@ -35,6 +35,7 @@
   "homepage": "https://zeroeffect.vercel.app/",
   "scripts": {
     "dev": "bun example/index.html",
+    "example": "bun example/example.html",
     "build-logo": "bun scripts/build-logo.ts project-chrome-tabs/public/logo.png",
     "bundle": "bun build example/index.html --outdir=dist",
     "pre-init": "bunx simple-git-hooks",

@@ -1,5 +1,7 @@
 import { h } from "zeroeffect";
 
+console.log("example");
+
 // Will create a style tag and insert it into the head
 h.css(`
 	.text-red-500 {
@@ -9,6 +11,28 @@ h.css(`
 		color: blue;
 	}
 `);
+
+const Component = () => {
+	const state = { count: 0 };
+	const div = h.div();
+
+	h.onUpdate(div, () => {
+		console.log("on update");
+	});
+
+	h.onMount(div, () => {
+		console.log("on mount");
+	});
+
+	h.onRemove(div, () => {
+		console.log("on remove");
+	});
+
+	return h.ref(div)(
+		h.div([state], () => state.count),
+		h.button({ onClick: () => state.count++ }, "Click"),
+	);
+};
 
 export const ExamplePage = () => {
 	// Just need a regular object
@@ -46,14 +70,20 @@ export const ExamplePage = () => {
 		h.update(state);
 	};
 
+	const div = h.div();
+
 	// If update is executed, this callback will be triggered
-	h.onUpdate(() => {
+	h.onUpdate(div, () => {
 		console.log("state changed", state);
 		if (state.count === 100) {
 			other.name = "Jane";
 		}
 		// Don't unconditionally use update in onUpdate, it will cause circular calls
 		// h.update(other);
+	});
+
+	h.onMount(div, () => {
+		console.log("on mount");
 	});
 
 	getCount();
@@ -72,7 +102,7 @@ export const ExamplePage = () => {
 		// If the first parameter is an array, it will be used as dependencies. When objects in the array change, it will trigger the function to respond. Dependencies can be multiple
 		// When h.update containing state is executed, it will trigger the function to respond, because [state] is described
 		// h.div is just a regular HTMLDivElement element, which will automatically bind reactive properties and dependencies
-		h.div(
+		h.ref(div)(
 			[state],
 			{ class: "text-2xl font-bold" },
 			() => `Count: ${state.count} -- ${new Date().toISOString()}`,
@@ -90,8 +120,9 @@ export const ExamplePage = () => {
 				return h.div([state], "Count is less than 2");
 			},
 		),
-		// h.element is used to bind reactive properties and dependencies to existing DOM elements
-		h.element(existingDiv)([state], { class: "text-2xl font-bold" }, () =>
+
+		// h.ref is used to bind reactive properties and dependencies to existing DOM elements
+		h.ref(existingDiv)([state], { class: "text-2xl font-bold" }, () =>
 			state.count % 2 === 0 ? "Even" : "Odd",
 		),
 		// Supports custom components. In TS, due to the type system, it's recommended to use 'as' to assert to a known type
@@ -158,13 +189,7 @@ export const ExamplePage = () => {
 			// If there's a 4th parameter, it will render when the condition is false
 			() => h.div([state], "I am odd"),
 		),
-		h.if(
-			[state],
-			() => state.count % 2 === 0,
-			() => {
-				return h.div([state], "I am even2");
-			},
-		),
+		h.if([state], () => state.count % 2 === 0, Component),
 		h.list(
 			// The first parameter is still dependencies, and the first element of the first parameter array needs to be the host. There can be multiple parameters, other parameters are just regular dependencies
 			// The list on the next line will be treated as both a dependency and parsed as a list, and will be used for type inference

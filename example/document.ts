@@ -12,6 +12,11 @@ const translations = {
 		title: "zeroeffect 响应式 DOM 库文档",
 		subtitle: "无虚拟 DOM · 无 Proxy · 无 Signal",
 		switchLang: "English",
+		lifecycle: {
+			title: "生命周期管理",
+			content:
+				"zeroeffect 提供完整的生命周期管理：h.onMount() 在元素挂载时触发，h.onUpdate() 在状态更新时触发，h.onRemove() 在元素移除时触发。配合 h.ref() 可以实现完整的组件生命周期。",
+		},
 		gettingStarted: {
 			title: "快速开始",
 			content:
@@ -44,7 +49,8 @@ const translations = {
 		},
 		element: {
 			title: "绑定已有元素",
-			content: "使用 h.element() 可以给已有的 DOM 元素绑定响应式属性和依赖。",
+			content:
+				"使用 h.ref() 可以给已有的 DOM 元素绑定响应式属性和依赖。也可以为新创建的元素绑定响应式属性。",
 		},
 		todo: {
 			title: "Todo List 完整示例",
@@ -73,6 +79,11 @@ const translations = {
 		title: "zeroeffect Reactive DOM Library Documentation",
 		subtitle: "No Virtual DOM · No Proxy · No Signal",
 		switchLang: "Chinese",
+		lifecycle: {
+			title: "Lifecycle Management",
+			content:
+				"zeroeffect provides complete lifecycle management: h.onMount() triggers when element is mounted, h.onUpdate() triggers on state updates, h.onRemove() triggers when element is removed. Combined with h.ref() for complete component lifecycle.",
+		},
 		gettingStarted: {
 			title: "Getting Started",
 			content:
@@ -106,7 +117,12 @@ const translations = {
 		element: {
 			title: "Binding Existing Elements",
 			content:
-				"Use h.element() to bind reactive attributes and dependencies to existing DOM elements.",
+				"Use h.ref() to bind reactive attributes and dependencies to existing DOM elements. Can also bind reactive properties to newly created elements.",
+		},
+		onUpdate: {
+			title: "Update Callbacks",
+			content:
+				"Use h.onUpdate() to register update callbacks. Two usages: h.onUpdate(callback) for global update callbacks; h.onUpdate(element, callback) for element-specific callbacks with automatic cleanup when element is removed.",
 		},
 		todo: {
 			title: "Todo List Complete Example",
@@ -149,6 +165,7 @@ function t(key: string): string {
 
 // Example states
 const exampleStates = {
+	lifecycle: { count: 0 },
 	gettingStarted: { count: 0 },
 	reactiveAttributes: { name: "John" },
 	style: { count: 0 },
@@ -163,6 +180,7 @@ const exampleStates = {
 		})),
 	},
 	element: { count: 0 },
+	onUpdate: { count: 0, name: "John" },
 	todo: {
 		todos: [] as Array<{
 			id: number;
@@ -930,14 +948,57 @@ h.virtualList(
   { class: "h-full overflow-y-auto" }, // Container attributes - REQUIRED
   (item, index) => h.div([item], () => \`Item: \${item}\`) // Render function
 );
-// Bind to existing element
-h.element(existingDiv)([state], () => state.text);
+
+// h.ref - Bind reactive properties to elements
+// Pattern 1: Bind to newly created element
+const div = h.div();
+h.ref(div)(
+  [state],
+  { class: "text-2xl" },
+  () => \`Count: \${state.count}\`
+);
+
+// Pattern 2: Bind to existing element
+const existingDiv = document.getElementById("my-div");
+h.ref(existingDiv)([state], () => state.content);
+
+// h.onUpdate - Register update callbacks
+// Pattern 1: Element-specific callback with lifecycle management (classic pattern)
+const App = () => {
+  const div = h.div();
+  const state = { count: 0 };
+
+  h.onUpdate(div, () => {
+    console.log("State updated");
+  });
+
+  h.onMount(div, () => {
+    console.log("Element mounted");
+  });
+
+  h.onRemove(div, () => {
+    console.log("Element removed");
+  });
+
+  return h.ref(div)([state], { onclick: () => {
+    state.count++;
+    h.update(state);
+  }}, () => \`Count: \${state.count}\`);
+};
+
+// Pattern 2: Global callback (returns unsubscribe function)
+const unsubscribe = h.onUpdate(() => {
+  console.log("Any state update!");
+});
+// Later: unsubscribe() to stop listening
 \`\`\`
 
 ## Special Methods
 
 - \`h.update(state)\` - Manually trigger update for state
-- \`h.onUpdate(callback)\` - Register update callback
+- \`h.onUpdate(callback | element, callback?)\` - Register update callback
+  - \`h.onUpdate(callback)\`: Global update callback, returns unsubscribe function
+  - \`h.onUpdate(element, callback)\`: Element-specific callback, auto-cleanup on remove
 - \`h.css(styles)\` - Inject CSS into head
 - \`h.innerHTML(html)\` - Render HTML string
 - \`h.if(deps, condition, renderFn, elseRenderFn?)\` - Conditional rendering
@@ -953,15 +1014,16 @@ h.element(existingDiv)([state], () => state.text);
   - Individual items update when their own dependencies change
 - \`h.virtualList(items, attrs, renderFn, options?)\` - Virtual list for large datasets (100k+ items)
   - Dynamic height mode: measures actual rendered heights and caches them for accurate scrolling
-- \`h.element(element)\` - Bind reactive properties to existing element
+- \`h.ref(element)\` - Bind reactive properties to existing or new elements
 
 ## Important Notes
 
 - Multiple \`h.update()\` calls in same frame are batched
 - Falsy values (\`false\`, \`null\`, \`undefined\`, \`NaN\`, \`''\`) don't render
-- Custom tags: \`h["custom-tag"]()\` works, but reserved methods don't: \`update\`, \`onUpdate\`, \`list\`, \`if\`, \`css\`, \`innerHTML\`, \`element\`, \`virtualList\`
+- Custom tags: \`h["custom-tag"]()\` works, but reserved methods don't: \`update\`, \`onUpdate\`, \`list\`, \`if\`, \`css\`, \`innerHTML\`, \`ref\`, \`virtualList\`
 - **TypeScript**: For custom tags, use type assertion: \`h["iconify-icon" as "div"]({ ... })\` to avoid type errors
-- Elements must be in DOM for updates to work`;
+- Elements must be in DOM for updates to work
+- Don't call \`h.update()\` inside \`h.onUpdate\` callbacks (causes circular calls!)`;
 
 	// Modal component
 	const modal = h.div(
@@ -1079,6 +1141,84 @@ h.element(existingDiv)([state], () => state.text);
 			{ class: "doc-header" },
 			h.h1({ class: "doc-title" }, () => t("title")),
 			h.p({ class: "doc-subtitle" }, () => t("subtitle")),
+		),
+		// Lifecycle Management - Complete component lifecycle example
+		createExampleSection(
+			"lifecycle",
+			`import { h } from "zeroeffect";
+
+// Classic component pattern with complete lifecycle management
+const App = ()=>{
+  const div = h.div();
+  const state = {
+    count:0
+  }
+
+  // Register lifecycle callbacks
+  h.onUpdate(div, ()=>{
+    console.log('on state update')
+  })
+
+  h.onMount(div, ()=>{
+    console.log('on div mount')
+  })
+
+  h.onRemove(div, ()=>{
+    console.log('on div remove')
+  })
+
+  const handleOnClick = ()=>{
+    state.count++;
+    h.update(state)
+  }
+
+  // Bind reactive properties to the element
+  return h.ref(div)([state], { class: 'primary', onclick: handleOnClick }, () => \`Count: \${state.count}\`);
+}
+
+document.body.append(App());`,
+			() => {
+				const state = exampleStates.lifecycle as { count: number };
+
+				const div = h.div();
+
+				// Register lifecycle callbacks
+				h.onUpdate(div, () => {
+					console.log("on state update");
+				});
+
+				h.onMount(div, () => {
+					console.log("on div mount");
+				});
+
+				h.onRemove(div, () => {
+					console.log("on div remove");
+				});
+
+				const handleOnClick = () => {
+					state.count++;
+					h.update(state);
+				};
+
+				// Bind reactive properties to the element
+				const app = h.ref(div)(
+					[state],
+					{
+						class: "title-lg mb-2 green-button",
+						onclick: handleOnClick,
+					},
+					() => `Count: ${state.count}`,
+				);
+
+				return h.div(
+					{ class: "space-y-2" },
+					app,
+					h.div(
+						{ class: "text-sm text-gray" },
+						"Complete lifecycle: onMount → onUpdate → onRemove",
+					),
+				);
+			},
 		),
 		// Getting Started - Combined intro, state, basic tags, reactive content
 		createExampleSection(
@@ -1598,27 +1738,83 @@ document.body.append(app);`,
 				);
 			},
 		),
-		// h.element
+		// h.ref
 		createExampleSection(
 			"element",
 			`import { h } from "zeroeffect";
 
-const existingDiv = document.createElement("div");
 const state = { count: 0 };
+const other = { name: "John" };
 
-h.element(existingDiv)(
+// Pattern 1: Bind reactive properties to a newly created element
+const div = h.div();
+h.ref(div)(
 	[state],
-	() => \`Count: \${state.count}\`
+	{ class: "title-lg" },
+	() => \`Count: \${state.count}\`,
+	h.span([state], () => (state.count % 2 === 0 ? "Even" : "Odd"))
 );
 
-document.body.append(existingDiv);`,
+// Pattern 2: Bind reactive properties to an existing element
+const existingDiv = document.createElement("div");
+h.ref(existingDiv)(
+	[other],
+	{ class: "text-blue" },
+	() => \`Name: \${other.name}\`
+);
+
+document.body.append(div, existingDiv);`,
 			() => {
 				const state = exampleStates.element as { count: number };
-				const demoDiv = document.createElement("div");
-				demoDiv.className =
+				const other = { name: "John" };
+
+				// Pattern 1: Create new element and bind
+				const div = h.div();
+				h.ref(div)(
+					[state],
+					{ class: "title-lg" },
+					() => `Count: ${state.count}`,
+					h.span([state], () => (state.count % 2 === 0 ? "Even" : "Odd")),
+				);
+
+				// Pattern 2: Bind to existing element
+				const existingDiv = document.createElement("div");
+				existingDiv.className =
 					"doc-p-2 doc-border doc-border-gray-300 doc-rounded";
-				h.element(demoDiv)([state], () => `Count: ${state.count}`);
-				return demoDiv;
+				h.ref(existingDiv)(
+					[other],
+					{ class: "text-blue" },
+					() => `Name: ${other.name}`,
+				);
+
+				return h.div(
+					{ class: "space-y-2" },
+					div,
+					h.div(
+						{ class: "flex-gap-2" },
+						h.button(
+							{
+								class: "green-button",
+								onclick: () => {
+									state.count++;
+									h.update(state);
+								},
+							},
+							"Increment",
+						),
+						h.button(
+							{
+								class: "blue-button",
+								onclick: () => {
+									other.name = other.name === "John" ? "Jane" : "John";
+									h.update(other);
+								},
+							},
+							"Toggle Name",
+						),
+					),
+					existingDiv,
+				);
 			},
 		),
 		// Todo List Example

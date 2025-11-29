@@ -1,3 +1,125 @@
+# Base Usage
+
+## Classic Component Pattern with Lifecycle
+
+The recommended way to create components in zeroeffect is using the lifecycle pattern:
+
+```typescript
+import { h } from "zeroeffect";
+
+const App = () => {
+  // 1. Create element
+  const div = h.div();
+
+  // 2. Create state
+  const state = {
+    count: 0
+  };
+
+  // 3. Register lifecycle callbacks
+  h.onUpdate(div, () => {
+    console.log('on state update')
+  });
+
+  h.onMount(div, () => {
+    console.log('on div mount')
+  });
+
+  h.onRemove(div, () => {
+    console.log('on div remove')
+  });
+
+  // 4. Handle events
+  const handleOnClick = () => {
+    state.count++;
+    h.update(state)
+  };
+
+  // 5. Bind reactive properties to the element
+  return h.ref(div)([state], {
+    class: 'primary',
+    onclick: handleOnClick
+  }, () => `Count: ${state.count}`);
+}
+
+document.body.append(App());
+```
+
+## Two Patterns for h.ref
+
+### Pattern 1: Bind to Newly Created Element
+
+```typescript
+const div = h.div();
+h.ref(div)(
+  [state],
+  { class: "title-lg" },
+  () => `Count: ${state.count}`,
+  h.span([state], () => (state.count % 2 === 0 ? "Even" : "Odd"))
+);
+```
+
+### Pattern 2: Bind to Existing Element
+
+```typescript
+const existingDiv = document.createElement("div");
+h.ref(existingDiv)(
+  [other],
+  { class: "text-blue" },
+  () => `Name: ${other.name}`
+);
+```
+
+## h.onUpdate Usage Patterns
+
+### Pattern 1: Global Update Callback
+
+```typescript
+// Subscribe to all updates (returns unsubscribe function)
+const unsubscribe = h.onUpdate(() => {
+  console.log("Any state update!");
+});
+
+// Later: unsubscribe()
+```
+
+### Pattern 2: Element-Specific Callback with Lifecycle Management
+
+```typescript
+const div = h.div();
+const state = { count: 0 };
+
+// Register callback for this specific element
+h.onUpdate(div, () => {
+  console.log("Element updated!");
+});
+
+h.onMount(div, () => {
+  console.log("Element mounted!");
+});
+
+h.onRemove(div, () => {
+  console.log("Element removed!");
+});
+
+// Bind reactive properties
+return h.ref(div)([state], {
+  onclick: () => {
+    state.count++;
+    h.update(state);
+  }
+}, () => `Count: ${state.count}`);
+```
+
+## Important Notes
+
+- **Don't call h.update() inside h.onUpdate callbacks** - This causes circular calls!
+- **Lifecycle hooks provide complete component lifecycle**: onMount → onUpdate → onRemove
+- **h.ref binds reactive properties** to both new and existing DOM elements
+- **Automatic cleanup**: Element-specific callbacks auto-unsubscribe when element is removed
+
+---
+
 # Testing Standards for Interactive Elements
 
 When creating interactive elements or components with event handlers (onclick, onchange, onkeydown, etc.), you MUST follow these guidelines:
@@ -108,3 +230,86 @@ const todoList = h.list(
 ## Lint Rule
 
 This will be enforced during code reviews. Elements with event handlers must have `data-testid` attributes.
+
+## Lifecycle Management
+
+### Memory Safety
+
+zeroeffect uses WeakMap/WeakSet for automatic memory management:
+
+```typescript
+// ✓ Good - Automatic cleanup
+const unsubscribe = h.onUpdate(() => {
+  // This will be automatically cleaned up when the element is removed
+});
+
+// ✗ Bad - Memory leak
+h.onUpdate(() => {
+  // No way to unsubscribe
+});
+```
+
+### Lifecycle Hooks
+
+Use lifecycle hooks for component initialization and cleanup:
+
+```typescript
+const element = h.div("Content");
+
+// 1. onMount - Called when element is added to DOM
+const unsubscribeMount = h.onMount(element, () => {
+  console.log("Mounted!");
+  // Setup timers, event listeners, etc.
+});
+
+// 2. onUpdate - Called on every update
+const unsubscribeUpdate = h.onUpdate(element, () => {
+  console.log("Updated!");
+});
+
+// 3. onRemove - Called when element is removed from DOM
+const unsubscribeRemove = h.onRemove(element, () => {
+  console.log("Removed!");
+  // Cleanup timers, remove event listeners, etc.
+});
+
+// Manual cleanup
+unsubscribeMount();
+unsubscribeUpdate();
+unsubscribeRemove();
+```
+
+### Combined Lifecycle with onUpdate
+
+For element-specific updates that auto-cleanup:
+
+```typescript
+// onUpdate with element automatically unsubscribes when element is removed
+const unsubscribe = h.onUpdate(element, () => {
+  // This callback will stop firing when element is removed
+  console.log("Element updated!");
+});
+
+// No need to manually track removal - it's automatic
+```
+
+### Global Updates
+
+Subscribe to all updates without element binding:
+
+```typescript
+// Global update listener (not tied to specific element)
+const unsubscribe = h.onUpdate(() => {
+  console.log("Any state update!");
+});
+
+// Unsubscribe when done
+unsubscribe();
+```
+
+## Key Principles
+
+1. **Always unsubscribe**: Every `h.onUpdate()` returns an unsubscribe function
+2. **Use onRemove for cleanup**: Clean up resources in `onRemove` callbacks
+3. **Let WeakMap handle memory**: Elements are automatically garbage collected
+4. **Test lifecycle**: Verify mount/update/remove callbacks work correctly
