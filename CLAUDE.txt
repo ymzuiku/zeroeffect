@@ -111,6 +111,247 @@ return h.ref(div)([state], {
 }, () => `Count: ${state.count}`);
 ```
 
+## h.if Usage Patterns
+
+### Basic Conditional Rendering
+
+```typescript
+// Simple conditional rendering
+const state = { show: true };
+const visible = h.if(
+  [state],
+  () => state.show,
+  () => h.div("Content is visible")
+);
+
+// With else clause
+const state2 = { isLoggedIn: false };
+const content = h.if(
+  [state2],
+  () => state2.isLoggedIn,
+  () => h.div("Welcome back!"),  // True branch
+  () => h.div("Please log in")   // False branch
+);
+```
+
+### Nested Conditionals
+
+```typescript
+const state = { outer: true, inner: false };
+const nested = h.if(
+  [state],
+  () => state.outer,
+  () => h.if(
+    [state],
+    () => state.inner,
+    () => h.div("Both conditions true"),
+    () => h.div("Inner condition false")
+  )
+);
+```
+
+### Conditional with Event Handlers
+
+```typescript
+const state = { isExpanded: false };
+const toggleContent = h.if(
+  [state],
+  () => state.isExpanded,
+  () => h.div(
+    { class: "expanded-content" },
+    "Expanded content",
+    h.button({
+      onclick: () => {
+        state.isExpanded = false;
+        h.update(state);
+      }
+    }, "Collapse")
+  ),
+  () => h.button({
+    onclick: () => {
+      state.isExpanded = true;
+      h.update(state);
+    }
+  }, "Expand")
+);
+```
+
+### Key Characteristics
+
+- **Initial placeholder**: Returns a span element that gets replaced based on condition
+- **Conditional caching**: Re-renders only when condition value actually changes
+- **Hidden fallback**: Returns hidden span when condition is false and no else provided
+
+## h.list Usage Patterns
+
+### Basic List Rendering
+
+```typescript
+// Simple list
+const list = [1, 2, 3];
+const listElement = h.list(
+  list,
+  (value) => h.div(`Item: ${value}`)
+);
+
+// With index
+const items = ['a', 'b', 'c'];
+const numberedList = h.list(
+  items,
+  (value, index) => h.div(`${index + 1}. ${value}`)
+);
+```
+
+### Complex Object Lists
+
+```typescript
+const todos = [
+  { id: 1, text: 'Learn TypeScript', completed: false },
+  { id: 2, text: 'Practice zeroeffect', completed: true },
+  { id: 3, text: 'Build app', completed: false }
+];
+
+const todoList = h.list(
+  todos,
+  (todo) => h.div(
+    { class: 'todo-item' },
+    h.input({
+      type: 'checkbox',
+      checked: () => todo.completed,
+      onchange: () => {
+        todo.completed = !todo.completed;
+        h.update(todo);
+      }
+    }),
+    h.span(() => todo.text)
+  )
+);
+```
+
+### Nested Lists
+
+```typescript
+const categories = [
+  { name: 'Fruits', items: ['Apple', 'Banana', 'Orange'] },
+  { name: 'Vegetables', items: ['Carrot', 'Celery', 'Lettuce'] }
+];
+
+const categoryList = h.list(
+  categories,
+  (category) => h.div(
+    h.h3(() => category.name),
+    h.ul(
+      h.list(
+        category.items,
+        (item) => h.li(() => item)
+      )
+    )
+  )
+);
+```
+
+### Reactive List Items
+
+```typescript
+const state = { filter: 'all' };
+const items = [
+  { id: 1, text: 'Task 1', category: 'work' },
+  { id: 2, text: 'Task 2', category: 'personal' },
+  { id: 3, text: 'Task 3', category: 'work' }
+];
+
+const filteredList = h.list(
+  items,
+  (item) => h.div(
+    [state, item],  // Multiple dependencies
+    () => `${item.text} (${item.category}) - ${state.filter}`
+  )
+);
+```
+
+### List Operations (Add/Remove)
+
+```typescript
+const list = [1, 2, 3, 4, 5];
+
+// Add item
+const addItem = () => {
+  list.push(list.length + 1);
+  h.update(list);
+};
+
+// Remove item
+const removeItem = (index: number) => {
+  list.splice(index, 1);
+  h.update(list);
+};
+
+// Clear list
+const clearList = () => {
+  list.length = 0;
+  h.update(list);
+};
+```
+
+### Styled List Items
+
+```typescript
+const users = [
+  { id: 1, name: 'Alice', active: true },
+  { id: 2, name: 'Bob', active: false },
+  { id: 3, name: 'Charlie', active: true }
+];
+
+const userList = h.list(
+  users,
+  (user) => h.div(
+    [user],
+    {
+      style: () => ({
+        backgroundColor: user.active ? '#4CAF50' : '#ccc',
+        padding: '10px',
+        margin: '5px',
+        borderRadius: '4px'
+      }),
+      class: 'user-item'
+    },
+    () => user.name
+  )
+);
+```
+
+### Virtual List (Large Datasets)
+
+```typescript
+const largeList = Array.from({ length: 10000 }, (_, i) => ({
+  id: i,
+  title: `Item ${i}`,
+  description: `Description for item ${i}`
+}));
+
+const virtualContainer = h.virtualList(
+  largeList,
+  { style: { height: '500px', overflow: 'auto' } },
+  (item) => h.div(
+    { style: { padding: '10px', borderBottom: '1px solid #eee' } },
+    h.h4(() => item.title),
+    h.p(() => item.description)
+  ),
+  {
+    itemHeight: 60,  // Fixed height
+    overscan: 10     // Buffer items
+  }
+);
+```
+
+### Key Characteristics
+
+- **Efficient updates**: Re-renders only when list length changes
+- **Differential rendering**: Adds new items without re-rendering all items
+- **Empty list handling**: Returns hidden span placeholder for empty arrays
+- **TypeScript generics**: Full type inference support
+- **Reactive items**: List items can have their own dependencies
+
 ## Important Notes
 
 - **Don't call h.update() inside h.onUpdate callbacks** - This causes circular calls!
